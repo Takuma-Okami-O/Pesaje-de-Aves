@@ -1,0 +1,8 @@
+{
+  "appId": "com.eberromero.pesajeaves",
+  "appName": "Pesaje de Aves",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false
+  }
+}
