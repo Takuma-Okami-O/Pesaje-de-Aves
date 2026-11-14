@@ -64,6 +64,20 @@
     };
   }
 
+  // Resumen de la granja: promedio simple de los promedios de los galpones con datos
+  function farmStats(galpones, meta) {
+    const rows = [];
+    let suma = 0, n = 0, tot = 0;
+    for (let i = 1; i <= 12; i++) {
+      const g = (galpones || {})[i];
+      const s = galponStats(g, meta);
+      rows.push({ id: i, edad: g ? g.edad : '', s: s });
+      tot += s.totalAves;
+      if (s.galpon !== null) { suma += s.galpon; n++; }
+    }
+    return { rows: rows, prom: n > 0 ? suma / n : null, conDatos: n, totalAves: tot };
+  }
+
   // Peso estándar para un día (interpola entre los días de la tabla)
   function refFor(day) {
     const d = Math.round(Number(day));
@@ -95,7 +109,7 @@
 
   root.Core = {
     REF: REF, CORRALES: CORRALES, TOL: TOL, ESTADOS: ESTADOS,
-    num: num, fmt: fmt, corralStats: corralStats, galponStats: galponStats,
+    num: num, fmt: fmt, corralStats: corralStats, galponStats: galponStats, farmStats: farmStats,
     refFor: refFor, compare: compare
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = root.Core;

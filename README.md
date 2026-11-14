@@ -46,3 +46,18 @@ Los datos quedan guardados en el teléfono; no usa internet.
 - Comparación: "Similar" si el peso real está dentro de ±3 % del estándar de ese día;
   por encima o por debajo si se sale. Para días entre los de la tabla (16–20, 23–26)
   el estándar se estima por interpolación y se marca como aproximado.
+
+## Varios teléfonos en una misma granja
+
+Ejemplo: una persona pesa los galpones 1 al 3 y otra los galpones 4 al 12.
+
+1. En el teléfono de la segunda persona: pantalla principal → **⬇ Respaldo**. Se crea un archivo
+   `Respaldo_PesajeAves_FECHA.json`; envíalo (WhatsApp, correo, Drive, Bluetooth) al teléfono principal.
+2. En el teléfono principal: **🔗 Combinar datos de otro teléfono** → elige el archivo (puedes elegir varios).
+   Los galpones nuevos se agregan; si un galpón tiene datos en ambos teléfonos la app pregunta cuál conservar.
+   Los datos del teléfono principal nunca se borran por combinar.
+3. Toca la tarjeta **Peso promedio de la granja** para ver el resumen por galpón.
+   **Exportar todos a Excel** agrega una primera hoja "Resumen Granja" con los 12 galpones y el promedio de la granja.
+
+Peso promedio de la granja = promedio simple de los promedios de los galpones con datos.
+Conviene que cada persona pese galpones distintos: si el mismo galpón se carga en dos teléfonos hay que elegir uno.

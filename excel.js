@@ -231,10 +231,92 @@
     return ws;
   }
 
-  function build(ExcelJS, state, ids, Core) {
+  function addResumen(wb, state, Core) {
+    const ws = wb.addWorksheet('Resumen Granja', {
+      views: [{ showGridLines: false }],
+      pageSetup: { paperSize: 9, orientation: 'portrait', fitToPage: true, fitToWidth: 1, fitToHeight: 1, horizontalCentered: true,
+        margins: { left: 0.4, right: 0.4, top: 0.5, bottom: 0.5, header: 0.3, footer: 0.3 } }
+    });
+    [10, 12, 14, 14, 14, 14, 14, 18].forEach(function (w, i) { ws.getColumn(i + 1).width = w; });
+    ws.mergeCells('A1:H1');
+    ws.getCell('A1').value = 'AGROINVERSIONES SAI-RAM, C.A';
+    ws.getCell('A1').font = fnt({ bold: true, size: 18 });
+    ws.getCell('A1').alignment = CENTRO;
+    ws.getRow(1).height = 30;
+    ws.mergeCells('A2:H2');
+    ws.getCell('A2').value = 'RESUMEN DE PESAJE DE LA GRANJA';
+    ws.getCell('A2').font = fnt({ size: 12, color: { argb: 'FF595959' } });
+    ws.getCell('A2').alignment = CENTRO;
+    const d = new Date();
+    const hoy = ('0' + d.getDate()).slice(-2) + '/' + ('0' + (d.getMonth() + 1)).slice(-2) + '/' + d.getFullYear();
+    ws.getCell('A4').value = 'GRANJA';
+    ws.mergeCells('B4:D4');
+    ws.getCell('B4').value = state.granja || '';
+    ws.getCell('F4').value = 'FECHA';
+    ws.mergeCells('G4:H4');
+    ws.getCell('G4').value = hoy;
+    ['A4', 'F4'].forEach(function (a) { ws.getCell(a).font = fnt({ bold: true, size: 10, color: { argb: 'FF595959' } }); ws.getCell(a).alignment = { horizontal: 'right', vertical: 'middle' }; });
+    paint(ws, 4, 2, 4, 4, { font: fnt({ bold: true }), align: CENTRO });
+    paint(ws, 4, 7, 4, 8, { font: fnt({ bold: true }), align: CENTRO });
+    ws.getRow(4).height = 22;
+    const heads = ['GALPÓN', 'EDAD (días)', 'AVES PESADAS', 'CORRAL A (g)', 'CORRAL B (g)', 'CORRAL C (g)', 'CORRAL D (g)', 'PESO PROM. GALPÓN (g)'];
+    heads.forEach(function (t, i) { ws.getCell(6, i + 1).value = t; });
+    paint(ws, 6, 1, 6, 8, { fill: GRIS, font: fnt({ bold: true, size: 10 }), align: CENTRO });
+    ws.getRow(6).height = 34;
+    const fs = Core.farmStats(state.galpones || {}, state.meta || 100);
+    const first = 7;
+    fs.rows.forEach(function (row, i) {
+      const r = first + i;
+      const hay = row.s.totalAves > 0;
+      paint(ws, r, 1, r, 8, { font: fnt(), align: CENTRO });
+      ws.getCell(r, 1).value = row.id;
+      ws.getCell(r, 1).font = fnt({ bold: true });
+      const ed = Core.num(row.edad);
+      if (hay && isFinite(ed) && ed > 0) ws.getCell(r, 2).value = Math.round(ed);
+      if (hay) ws.getCell(r, 3).value = row.s.totalAves;
+      Core.CORRALES.forEach(function (k, j) {
+        const cell = ws.getCell(r, 4 + j);
+        cell.numFmt = '#,##0.00';
+        if (row.s.c[k].aves > 0) cell.value = row.s.c[k].prom;
+      });
+      const hc = ws.getCell(r, 8);
+      hc.numFmt = '#,##0.00';
+      hc.font = fnt({ bold: true });
+      hc.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: GRIS_CLARO } };
+      if (hay) hc.value = { formula: 'AVERAGE(D' + r + ':G' + r + ')', result: row.s.galpon };
+      ws.getRow(r).height = 20;
+    });
+    const last = first + 11;
+    ws.getCell(last + 1, 1).value = '';
+    ws.mergeCells(last + 2, 2, last + 2, 5);
+    paint(ws, last + 2, 2, last + 2, 5, { fill: GRIS, font: fnt({ bold: true }), align: CENTRO });
+    ws.getCell(last + 2, 2).value = 'PESO PROMEDIO GRANJA';
+    ws.mergeCells(last + 3, 2, last + 3, 5);
+    paint(ws, last + 3, 2, last + 3, 5, { font: fnt({ bold: true, size: 16 }), align: CENTRO, numFmt: '#,##0.00" g"' });
+    ws.getCell(last + 3, 2).value = {
+      formula: 'IF(COUNT(H' + first + ':H' + last + ')=0,"",AVERAGE(H' + first + ':H' + last + '))',
+      result: fs.prom === null ? '' : fs.prom
+    };
+    ws.getRow(last + 3).height = 30;
+    ws.mergeCells(last + 2, 6, last + 3, 8);
+    ws.getCell(last + 2, 6).value = fs.conDatos + ' de 12 galpones con datos\n' + fs.totalAves.toLocaleString('es-VE') + ' aves pesadas';
+    ws.getCell(last + 2, 6).font = fnt({ size: 10, color: { argb: 'FF595959' } });
+    ws.getCell(last + 2, 6).alignment = CENTRO;
+    ws.mergeCells(last + 5, 1, last + 5, 8);
+    ws.getCell(last + 5, 1).value = 'Promedio de la granja = promedio simple de los promedios de los galpones con datos.';
+    ws.getCell(last + 5, 1).font = fnt({ italic: true, size: 9, color: { argb: 'FF595959' } });
+    ws.mergeCells(last + 6, 1, last + 6, 8);
+    ws.getCell(last + 6, 1).value = FIRMA;
+    ws.getCell(last + 6, 1).font = fnt({ italic: true, bold: true, size: 10, color: { argb: VERDE } });
+    ws.getCell(last + 6, 1).alignment = { horizontal: 'right', vertical: 'middle' };
+    ws.pageSetup.printArea = 'A1:H' + (last + 6);
+  }
+
+  function build(ExcelJS, state, ids, Core, opts) {
     const wb = new ExcelJS.Workbook();
     wb.creator = 'Eber Romero - Analista de sistemas';
     wb.created = new Date();
+    if (opts && opts.resumen) addResumen(wb, state, Core);
     ids.forEach(function (id) {
       addSheet(wb, id, (state.galpones || {})[id], state.meta || 100, Core, state.granja);
     });

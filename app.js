@@ -66,6 +66,7 @@
       if (p[2] && C.CORRALES.indexOf(p[2]) >= 0) return { v: 'corral', id: +p[1], k: p[2] };
       return { v: 'galpon', id: +p[1] };
     }
+    if (p[0] === 'granja') return { v: 'granja' };
     return { v: 'home' };
   }
   let lastRoute = '';
@@ -73,10 +74,42 @@
     const r = route();
     const key = r.v + (r.id || '') + (r.k || '');
     if (r.v === 'home') app.innerHTML = viewHome();
+    else if (r.v === 'granja') app.innerHTML = viewGranja();
     else if (r.v === 'galpon') app.innerHTML = viewGalpon(r.id);
     else app.innerHTML = viewCorral(r.id, r.k);
     if (key !== lastRoute) { window.scrollTo(0, 0); lastRoute = key; }
     if (r.v === 'corral') bindCorral();
+  }
+
+  // ---------- Resumen de la granja ----------
+  function farmCard() {
+    const f = C.farmStats(state.galpones, state.meta);
+    return '<a class="card big-card" href="#/granja" style="display:block;margin-bottom:14px;padding:12px">' +
+      '<div class="lbl" style="font-size:12px;opacity:.85;text-transform:uppercase;letter-spacing:.05em">Peso promedio de la granja</div>' +
+      '<div style="font-size:30px;font-weight:800;margin:2px 0">' + (f.prom !== null ? C.fmt(f.prom, 2) + ' g' : '—') + '</div>' +
+      '<div style="font-size:12.5px;opacity:.85">' + f.conDatos + ' de 12 galpones con datos · toca para ver el resumen ›</div></a>';
+  }
+  function viewGranja() {
+    const f = C.farmStats(state.galpones, state.meta);
+    const faltan = f.rows.filter(function (r) { return r.s.totalAves === 0; }).map(function (r) { return r.id; });
+    const incompletos = f.rows.filter(function (r) { return r.s.totalAves > 0 && r.s.completos < 4; }).map(function (r) { return r.id; });
+    let avisos = '';
+    if (f.conDatos > 0 && faltan.length) avisos += '<div class="warn">Sin datos todavía: galpón ' + faltan.join(', ') + '. Si otro teléfono los tiene, usa "Combinar datos de otro teléfono".</div>';
+    if (incompletos.length) avisos += '<div class="warn">Corrales por debajo de la meta en: galpón ' + incompletos.join(', ') + '.</div>';
+    const filas = f.rows.map(function (r) {
+      const hay = r.s.totalAves > 0;
+      return '<a class="ent" style="grid-template-columns:82px 1fr 1fr" href="#/g/' + r.id + '"><span class="n">Galpón ' + r.id + '</span>' +
+        '<span>' + (hay ? C.fmt(r.s.totalAves, 0) + ' aves' : '<span style="color:var(--mut)">sin datos</span>') + '</span>' +
+        '<span style="text-align:right"><b>' + (hay ? C.fmt(r.s.galpon, 2) + ' g' : '—') + '</b></span></a>';
+    }).join('');
+    return '<header class="top"><a class="ib" href="#/" aria-label="Volver">‹</a><div class="grow"><h1>Resumen de la granja</h1>' +
+      '<p>' + esc(state.granja || 'Sin nombre de granja') + '</p></div></header>' +
+      '<main><div class="card big-card"><div class="lbl">Peso promedio de la granja</div><div class="val">' +
+      (f.prom !== null ? C.fmt(f.prom, 2) + ' g' : '—') + '</div><div class="sub">' + f.conDatos + ' de 12 galpones con datos · ' +
+      C.fmt(f.totalAves, 0) + ' aves pesadas</div>' + avisos + '</div>' +
+      '<div class="card"><h2>Por galpón</h2>' + filas + '</div>' +
+      '<button class="btn primary big" data-act="export-all">📊 Generar Excel de la granja</button>' +
+      '<button class="btn small mt" data-act="combine">🔗 Combinar datos de otro teléfono</button></main>' + firma();
   }
 
   // ---------- Vista: inicio ----------
@@ -103,9 +136,11 @@
       '<button class="ib" data-act="meta" aria-label="Meta de aves">⚙</button></header>' +
       '<main><div class="card" style="padding:10px 14px"><div style="font-size:13px;color:var(--mut)">Toca un galpón para pesar. ' +
       'Meta: <b>' + state.meta + ' aves</b> por corral. Todo se guarda en este teléfono, sin internet.</div></div>' +
+      farmCard() +
       '<div class="sheds">' + tiles + '</div>' +
       '<button class="btn primary big" data-act="export-all">📊 Exportar todos a Excel</button>' +
       '<div class="row mt"><button class="btn small" data-act="backup">⬇ Respaldo</button><button class="btn small" data-act="restore">⬆ Restaurar</button></div>' +
+      '<button class="btn small" data-act="combine" style="margin-bottom:10px">🔗 Combinar datos de otro teléfono</button>' +
       '<button class="btn danger small" data-act="clear-all">Nueva jornada (borrar todo)</button>' +
       '</main>' + firma();
   }
@@ -274,6 +309,7 @@
     }
     else if (act === 'backup') exportBackup();
     else if (act === 'restore') restoreBackup();
+    else if (act === 'combine') combineBackups();
   });
   app.addEventListener('change', function (e) {
     const r = route();
@@ -334,10 +370,10 @@
   }
   const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
   function tieneDatos(id) { return C.galponStats(state.galpones[id], state.meta).totalAves > 0; }
-  async function exportIds(ids, nombre) {
+  async function exportIds(ids, nombre, opts) {
     if (typeof window.ExcelJS === 'undefined') { toast('Falta la librería de Excel', true); return; }
     try {
-      const wb = XL.build(window.ExcelJS, state, ids, C);
+      const wb = XL.build(window.ExcelJS, state, ids, C, opts);
       const buf = await wb.xlsx.writeBuffer();
       await saveAndShare(nombre, buf, XLSX_MIME);
     } catch (e) { toast('Error al crear el Excel: ' + ((e && e.message) || e), true); }
@@ -351,7 +387,7 @@
     const ids = [];
     for (let i = 1; i <= 12; i++) if (tieneDatos(i)) ids.push(i);
     if (!ids.length) { toast('Aún no hay galpones con pesos', true); return; }
-    exportIds(ids, 'Pesaje_Galpones_' + today() + '.xlsx');
+    exportIds(ids, 'Pesaje_Granja_' + today() + '.xlsx', { resumen: true });
   }
   function exportBackup() {
     const bytes = new TextEncoder().encode(JSON.stringify(state));
@@ -377,6 +413,51 @@
     };
     inp.click();
   }
+
+  // Une los galpones de uno o varios respaldos (de otros teléfonos) con los de este teléfono.
+  function readText(f) {
+    return new Promise(function (res, rej) {
+      const rd = new FileReader();
+      rd.onload = function () { res(rd.result); };
+      rd.onerror = function () { rej(rd.error); };
+      rd.readAsText(f);
+    });
+  }
+  function mergeBackup(s, resumen) {
+    if (!s || s.v !== 1 || !s.galpones) throw new Error('formato');
+    Object.keys(s.galpones).forEach(function (id) {
+      const inc = s.galpones[id];
+      const ai = C.galponStats(inc, state.meta).totalAves;
+      if (!(ai > 0)) return;
+      const cur = state.galpones[id];
+      const ac = C.galponStats(cur, state.meta).totalAves;
+      if (!(ac > 0)) { state.galpones[id] = inc; resumen.nuevos.push(id); return; }
+      if (confirm('El galpón ' + id + ' tiene datos aquí (' + ac + ' aves) y en el archivo (' + ai + ' aves).\n\nAceptar = usar el del archivo\nCancelar = conservar el de este teléfono')) {
+        state.galpones[id] = inc; resumen.reemplazados.push(id);
+      } else resumen.conservados.push(id);
+    });
+    if (!state.granja && s.granja) state.granja = s.granja;
+  }
+  function combineBackups() {
+    const inp = document.createElement('input');
+    inp.type = 'file'; inp.accept = '.json,application/json'; inp.multiple = true;
+    inp.onchange = async function () {
+      const files = Array.prototype.slice.call(inp.files || []);
+      if (!files.length) return;
+      const resumen = { nuevos: [], reemplazados: [], conservados: [] };
+      try {
+        for (let i = 0; i < files.length; i++) mergeBackup(JSON.parse(await readText(files[i])), resumen);
+      } catch (e) { toast('Ese archivo no es un respaldo válido', true); return; }
+      save(); render();
+      const partes = [];
+      if (resumen.nuevos.length) partes.push('agregados: ' + resumen.nuevos.sort(function (x, y) { return x - y; }).join(', '));
+      if (resumen.reemplazados.length) partes.push('reemplazados: ' + resumen.reemplazados.join(', '));
+      if (resumen.conservados.length) partes.push('conservados: ' + resumen.conservados.join(', '));
+      toast(partes.length ? 'Galpones ' + partes.join(' · ') : 'El archivo no traía galpones con datos', !partes.length);
+    };
+    inp.click();
+  }
+  window.__combine = { mergeBackup: mergeBackup };
 
   render();
 })();
