@@ -51,13 +51,15 @@ Los datos quedan guardados en el teléfono; no usa internet.
 
 Ejemplo: una persona pesa los galpones 1 al 3 y otra los galpones 4 al 12.
 
-1. En el teléfono de la segunda persona: pantalla principal → **⬇ Respaldo**. Se crea un archivo
-   `Respaldo_PesajeAves_FECHA.json`; envíalo (WhatsApp, correo, Drive, Bluetooth) al teléfono principal.
-2. En el teléfono principal: **🔗 Combinar datos de otro teléfono** → elige el archivo (puedes elegir varios).
+1. Teléfono 2: **🔄 Respaldo y combinar** → **📤 Enviar por WhatsApp (texto)**. Se manda un mensaje que
+   empieza con `PESAJE1:` y termina con `#` (no hay archivos que buscar). También puedes tocar
+   **📋 Copiar código** y pegarlo tú en un mensaje.
+2. Teléfono principal: copia el mensaje recibido → **🔄 Respaldo y combinar** → pégalo en el cuadro → **🔗 Combinar**.
    Los galpones nuevos se agregan; si un galpón tiene datos en ambos teléfonos la app pregunta cuál conservar.
-   Los datos del teléfono principal nunca se borran por combinar.
+   Los datos del teléfono principal no se borran por combinar. Se pueden combinar varios mensajes, uno tras otro.
 3. Toca la tarjeta **Peso promedio de la granja** para ver el resumen por galpón.
    **Exportar todos a Excel** agrega una primera hoja "Resumen Granja" con los 12 galpones y el promedio de la granja.
 
+El archivo `.json` ("Guardar como archivo") sigue existiendo como alternativa, pero no es necesario.
 Peso promedio de la granja = promedio simple de los promedios de los galpones con datos.
 Conviene que cada persona pese galpones distintos: si el mismo galpón se carga en dos teléfonos hay que elegir uno.

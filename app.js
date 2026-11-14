@@ -67,6 +67,7 @@
       return { v: 'galpon', id: +p[1] };
     }
     if (p[0] === 'granja') return { v: 'granja' };
+    if (p[0] === 'respaldo') return { v: 'respaldo' };
     return { v: 'home' };
   }
   let lastRoute = '';
@@ -75,6 +76,7 @@
     const key = r.v + (r.id || '') + (r.k || '');
     if (r.v === 'home') app.innerHTML = viewHome();
     else if (r.v === 'granja') app.innerHTML = viewGranja();
+    else if (r.v === 'respaldo') app.innerHTML = viewRespaldo();
     else if (r.v === 'galpon') app.innerHTML = viewGalpon(r.id);
     else app.innerHTML = viewCorral(r.id, r.k);
     if (key !== lastRoute) { window.scrollTo(0, 0); lastRoute = key; }
@@ -94,7 +96,7 @@
     const faltan = f.rows.filter(function (r) { return r.s.totalAves === 0; }).map(function (r) { return r.id; });
     const incompletos = f.rows.filter(function (r) { return r.s.totalAves > 0 && r.s.completos < 4; }).map(function (r) { return r.id; });
     let avisos = '';
-    if (f.conDatos > 0 && faltan.length) avisos += '<div class="warn">Sin datos todavía: galpón ' + faltan.join(', ') + '. Si otro teléfono los tiene, usa "Combinar datos de otro teléfono".</div>';
+    if (f.conDatos > 0 && faltan.length) avisos += '<div class="warn">Sin datos todavía: galpón ' + faltan.join(', ') + '. Si otro teléfono los tiene, usa "Respaldo y combinar".</div>';
     if (incompletos.length) avisos += '<div class="warn">Corrales por debajo de la meta en: galpón ' + incompletos.join(', ') + '.</div>';
     const filas = f.rows.map(function (r) {
       const hay = r.s.totalAves > 0;
@@ -109,8 +111,29 @@
       C.fmt(f.totalAves, 0) + ' aves pesadas</div>' + avisos + '</div>' +
       '<div class="card"><h2>Por galpón</h2>' + filas + '</div>' +
       '<button class="btn primary big" data-act="export-all">📊 Generar Excel de la granja</button>' +
-      '<button class="btn small mt" data-act="combine">🔗 Combinar datos de otro teléfono</button></main>' + firma();
+      '<a class="btn small mt" href="#/respaldo">🔄 Recibir datos de otro teléfono</a></main>' + firma();
   }
+
+  // ---------- Vista: respaldo y combinar ----------
+  function viewRespaldo() {
+    const f = C.farmStats(state.galpones, state.meta);
+    return '<header class="top"><a class="ib" href="#/" aria-label="Volver">‹</a><div class="grow"><h1>Respaldo y combinar</h1>' +
+      '<p>Juntar datos de varios teléfonos</p></div></header><main>' +
+      '<div class="card"><h2>1. Enviar mis datos</h2>' +
+      '<div class="hintbox" style="margin-bottom:10px">Tienes <b>' + f.conDatos + ' galpones</b> con datos. Se envían como un mensaje de texto: no hace falta guardar ni buscar ningún archivo.</div>' +
+      '<button class="btn primary big" data-act="send-code">📤 Enviar por WhatsApp (texto)</button>' +
+      '<button class="btn small mt" data-act="copy-code">📋 Copiar código</button>' +
+      '<button class="btn small mt" data-act="backup">💾 Guardar como archivo (.json)</button>' +
+      '<div id="res" class="hint"></div></div>' +
+      '<div class="card"><h2>2. Recibir datos de otro teléfono</h2>' +
+      '<label>Pega aquí el mensaje recibido</label>' +
+      '<textarea id="code-in" rows="4" placeholder="PESAJE1:..." style="width:100%;border:2px solid var(--line);border-radius:12px;padding:10px;font-size:14px;font-family:inherit"></textarea>' +
+      '<button class="btn primary big mt" data-act="combine-code">🔗 Combinar</button>' +
+      '<button class="btn small mt" data-act="combine">📁 Elegir archivo .json</button></div>' +
+      '<div class="card"><h2>Restaurar (reemplaza todo)</h2><div class="hintbox" style="margin-bottom:10px">Para pasar todo a un teléfono nuevo. Borra lo que haya aquí y pone lo del archivo.</div>' +
+      '<button class="btn danger small" data-act="restore">⬆ Restaurar desde archivo</button></div></main>' + firma();
+  }
+  function setRes(msg, bad) { const r = $('#res'); if (r) { r.textContent = msg; r.className = 'hint' + (bad ? ' bad' : ''); } }
 
   // ---------- Vista: inicio ----------
   function shedSvg() {
@@ -139,8 +162,7 @@
       farmCard() +
       '<div class="sheds">' + tiles + '</div>' +
       '<button class="btn primary big" data-act="export-all">📊 Exportar todos a Excel</button>' +
-      '<div class="row mt"><button class="btn small" data-act="backup">⬇ Respaldo</button><button class="btn small" data-act="restore">⬆ Restaurar</button></div>' +
-      '<button class="btn small" data-act="combine" style="margin-bottom:10px">🔗 Combinar datos de otro teléfono</button>' +
+      '<a class="btn small mt" href="#/respaldo" style="margin-bottom:10px">🔄 Respaldo y combinar datos de otros teléfonos</a>' +
       '<button class="btn danger small" data-act="clear-all">Nueva jornada (borrar todo)</button>' +
       '</main>' + firma();
   }
@@ -310,6 +332,9 @@
     else if (act === 'backup') exportBackup();
     else if (act === 'restore') restoreBackup();
     else if (act === 'combine') combineBackups();
+    else if (act === 'send-code') sendCode();
+    else if (act === 'copy-code') copyCode();
+    else if (act === 'combine-code') combineCode();
   });
   app.addEventListener('change', function (e) {
     const r = route();
@@ -339,6 +364,7 @@
   function isNative() {
     return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
   }
+  function aviso(msg, bad) { toast(msg, bad); setRes(msg, bad); }
   async function saveAndShare(name, buf, mime) {
     const P = window.Capacitor && window.Capacitor.Plugins;
     if (isNative() && P && P.Filesystem) {
@@ -351,11 +377,12 @@
       try {
         const f = await P.Filesystem.writeFile({ path: name, data: b64, directory: 'CACHE' });
         if (P.Share) await P.Share.share({ title: name, text: name, url: f.uri, dialogTitle: 'Guardar o enviar archivo' });
-        if (guardado) toast('Copia guardada en Documentos/PesajeAves');
+        if (guardado) aviso('Copia guardada en Documentos/PesajeAves');
+        else aviso('No se pudo guardar copia en Documentos; solo se compartió', true);
       } catch (e) {
         const m = String((e && e.message) || e);
-        if (/cancel/i.test(m)) { if (guardado) toast('Copia guardada en Documentos/PesajeAves'); return; }
-        if (guardado) toast('Guardado en Documentos/PesajeAves');
+        if (/cancel/i.test(m)) { aviso(guardado ? 'Copia guardada en Documentos/PesajeAves' : 'No se guardó ninguna copia en el teléfono', !guardado); return; }
+        if (guardado) aviso('Guardado en Documentos/PesajeAves');
         else toast('No se pudo exportar: ' + m, true);
       }
       return;
@@ -414,6 +441,78 @@
     inp.click();
   }
 
+  // ---------- Código de texto (para enviar por WhatsApp sin archivos) ----------
+  function encodeState() {
+    const out = { v: 1, meta: state.meta, granja: state.granja || '', galpones: {} };
+    Object.keys(state.galpones).forEach(function (id) {
+      const g = state.galpones[id];
+      if (!(C.galponStats(g, state.meta).totalAves > 0)) return;
+      const c = {};
+      C.CORRALES.forEach(function (k) { c[k] = ((g.c && g.c[k]) || []).map(function (e) { return [e.a, e.p]; }); });
+      out.galpones[id] = { fecha: g.fecha, edad: g.edad, c: c };
+    });
+    return 'PESAJE1:' + btoa(unescape(encodeURIComponent(JSON.stringify(out)))) + '#';
+  }
+  // Acepta el código (con texto alrededor) o un JSON de respaldo. Devuelve el estado en formato normal.
+  function decodeAny(text) {
+    let t = String(text || '').trim();
+    const m = /PESAJE1:([A-Za-z0-9+\/=\s]+)#/.exec(t);
+    if (m) t = decodeURIComponent(escape(atob(m[1].replace(/\s+/g, ''))));
+    const s = JSON.parse(t);
+    if (!s || s.v !== 1 || !s.galpones) throw new Error('formato');
+    Object.keys(s.galpones).forEach(function (id) {
+      const g = s.galpones[id];
+      if (!g || !g.c) return;
+      Object.keys(g.c).forEach(function (k) {
+        g.c[k] = (g.c[k] || []).map(function (e) { return Array.isArray(e) ? { a: e[0], p: e[1] } : e; });
+      });
+    });
+    return s;
+  }
+  function finishMerge(resumen) {
+    save(); render();
+    const partes = [];
+    if (resumen.nuevos.length) partes.push('agregados: ' + resumen.nuevos.sort(function (x, y) { return x - y; }).join(', '));
+    if (resumen.reemplazados.length) partes.push('reemplazados: ' + resumen.reemplazados.join(', '));
+    if (resumen.conservados.length) partes.push('conservados: ' + resumen.conservados.join(', '));
+    toast(partes.length ? 'Galpones ' + partes.join(' · ') : 'No traía galpones con datos', !partes.length);
+  }
+  function combineCode() {
+    const box = $('#code-in');
+    if (!box || !box.value.trim()) { toast('Pega primero el mensaje recibido', true); return; }
+    const resumen = { nuevos: [], reemplazados: [], conservados: [] };
+    try { mergeBackup(decodeAny(box.value), resumen); }
+    catch (e) { toast('No se reconoce ese texto. Copia el mensaje completo, desde PESAJE1: hasta el # final', true); return; }
+    finishMerge(resumen);
+    location.hash = '#/granja';
+  }
+  async function sendCode() {
+    const code = encodeState();
+    if (code.length < 30 || !Object.keys(JSON.parse(decodeURIComponent(escape(atob(code.slice(8, -1))))).galpones).length) { toast('Aún no hay galpones con datos para enviar', true); return; }
+    const P = window.Capacitor && window.Capacitor.Plugins;
+    try {
+      if (isNative() && P && P.Share) await P.Share.share({ title: 'Datos de pesaje', text: code, dialogTitle: 'Enviar datos de pesaje' });
+      else if (navigator.share) await navigator.share({ title: 'Datos de pesaje', text: code });
+      else { await copyCode(); return; }
+      setRes('Listo. En el otro teléfono: Respaldo y combinar → pegar el mensaje → Combinar.');
+    } catch (e) {
+      if (!/cancel|abort/i.test(String((e && e.message) || e))) { setRes('No se pudo abrir el menú de compartir. Usa "Copiar código".', true); }
+    }
+  }
+  async function copyCode() {
+    const code = encodeState();
+    let ok = false;
+    try { await navigator.clipboard.writeText(code); ok = true; }
+    catch (e) {
+      try {
+        const ta = document.createElement('textarea'); ta.value = code; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select(); ok = document.execCommand('copy'); ta.remove();
+      } catch (e2) { ok = false; }
+    }
+    if (ok) { toast('Código copiado. Pégalo en un mensaje de WhatsApp'); setRes('Código copiado (' + code.length + ' caracteres). Pégalo en WhatsApp y envíalo.'); }
+    else toast('No se pudo copiar', true);
+  }
+
   // Une los galpones de uno o varios respaldos (de otros teléfonos) con los de este teléfono.
   function readText(f) {
     return new Promise(function (res, rej) {
@@ -446,18 +545,14 @@
       if (!files.length) return;
       const resumen = { nuevos: [], reemplazados: [], conservados: [] };
       try {
-        for (let i = 0; i < files.length; i++) mergeBackup(JSON.parse(await readText(files[i])), resumen);
+        for (let i = 0; i < files.length; i++) mergeBackup(decodeAny(await readText(files[i])), resumen);
       } catch (e) { toast('Ese archivo no es un respaldo válido', true); return; }
-      save(); render();
-      const partes = [];
-      if (resumen.nuevos.length) partes.push('agregados: ' + resumen.nuevos.sort(function (x, y) { return x - y; }).join(', '));
-      if (resumen.reemplazados.length) partes.push('reemplazados: ' + resumen.reemplazados.join(', '));
-      if (resumen.conservados.length) partes.push('conservados: ' + resumen.conservados.join(', '));
-      toast(partes.length ? 'Galpones ' + partes.join(' · ') : 'El archivo no traía galpones con datos', !partes.length);
+      finishMerge(resumen);
+      location.hash = '#/granja';
     };
     inp.click();
   }
-  window.__combine = { mergeBackup: mergeBackup };
+  window.__combine = { mergeBackup: mergeBackup, decodeAny: decodeAny, encodeState: encodeState };
 
   render();
 })();
