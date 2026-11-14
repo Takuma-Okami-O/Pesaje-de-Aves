@@ -10,11 +10,14 @@
   const app = document.getElementById('app');
 
   // ---------- Estado persistente ----------
-  function blank() { return { v: 1, meta: 100, lastNucleo: '', galpones: {} }; }
+  function blank() { return { v: 1, meta: 100, granja: '', galpones: {} }; }
   function load() {
     try {
       const raw = localStorage.getItem(KEY);
-      if (raw) { const s = JSON.parse(raw); if (s && s.v === 1 && s.galpones) return s; }
+      if (raw) { const s = JSON.parse(raw); if (s && s.v === 1 && s.galpones) {
+          if (s.granja === undefined) s.granja = s.lastNucleo || '';
+          return s;
+        } }
     } catch (e) { /* sin almacenamiento */ }
     return blank();
   }
@@ -47,7 +50,7 @@
   }
   function ensure(id) {
     if (!state.galpones[id]) {
-      state.galpones[id] = { fecha: today(), nucleo: state.lastNucleo || '', edad: '', c: { A: [], B: [], C: [], D: [] } };
+      state.galpones[id] = { fecha: today(), edad: '', c: { A: [], B: [], C: [], D: [] } };
     }
     const g = state.galpones[id];
     if (!g.c) g.c = {};
@@ -150,7 +153,7 @@
       '</tr></thead><tbody>' + rows + '</tbody></table></div></details>';
   }
   function viewGalpon(id) {
-    const g = state.galpones[id] || { fecha: today(), nucleo: state.lastNucleo || '', edad: '', c: {} };
+    const g = state.galpones[id] || { fecha: today(), edad: '', c: {} };
     const s = C.galponStats(g, state.meta);
     const pens = C.CORRALES.map(function (k) {
       const st = s.c[k];
@@ -164,7 +167,7 @@
       '<main><div class="card fields">' +
       '<div><label>Fecha</label><input type="date" id="f-fecha" value="' + esc(g.fecha || today()) + '"></div>' +
       '<div><label>Edad (días)</label><input type="number" inputmode="numeric" id="f-edad" min="1" max="70" value="' + esc(g.edad) + '" placeholder="Ej. 21"></div>' +
-      '<div class="w2"><label>Núcleo</label><input type="text" id="f-nucleo" value="' + esc(g.nucleo) + '" placeholder="Ej. Catalda II"></div></div>' +
+      '<div class="w2"><label>Granja</label><input type="text" id="f-granja" value="' + esc(state.granja) + '" placeholder="Ej. Catalda II"></div></div>' +
       '<div class="pens">' + pens + '</div>' +
       '<div id="sum">' + summaryHtml(id) + '</div>' +
       refTable(g.edad) +
@@ -190,7 +193,7 @@
     }
     if (!rows) rows = '<div class="empty">Aún no hay pesadas. Escribe cuántas aves pesaste y el peso total.</div>';
     return '<header class="top"><a class="ib" href="#/g/' + id + '" aria-label="Volver">‹</a><div class="grow"><h1>Galpón ' + id + ' · Corral ' + k + '</h1>' +
-      '<p>' + esc((g && g.nucleo) || 'Sin núcleo') + '</p></div></header>' +
+      '<p>' + esc(state.granja || 'Sin granja') + '</p></div></header>' +
       '<main><div class="card"><div class="row">' +
       '<div><label>Cantidad de aves</label><input type="number" inputmode="numeric" id="in-a" min="1" step="1" placeholder="Ej. 9"></div>' +
       '<div><label>Peso total (kg)</label><input type="text" inputmode="decimal" id="in-p" placeholder="Ej. 26.4"></div></div>' +
@@ -277,8 +280,8 @@
     if (r.v !== 'galpon') return;
     const t = e.target;
     if (t.id === 'f-fecha') { ensure(r.id).fecha = t.value || today(); save(); }
-    else if (t.id === 'f-nucleo') {
-      const g = ensure(r.id); g.nucleo = t.value.trim(); state.lastNucleo = g.nucleo; save();
+    else if (t.id === 'f-granja') {
+      state.granja = t.value.trim(); save();
     }
     else if (t.id === 'f-edad') {
       ensure(r.id).edad = t.value; save();
@@ -366,6 +369,7 @@
           const s = JSON.parse(rd.result);
           if (!s || s.v !== 1 || !s.galpones) throw new Error('formato');
           if (!confirm('Esto reemplaza los datos actuales por los del respaldo. ¿Continuar?')) return;
+          if (!s.granja) s.granja = state.granja || '';
           state = s; save(); render(); toast('Respaldo restaurado');
         } catch (e) { toast('Ese archivo no es un respaldo válido', true); }
       };

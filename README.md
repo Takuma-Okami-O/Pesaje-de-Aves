@@ -28,7 +28,7 @@ Los datos quedan guardados en el teléfono; no usa internet.
 - Pantalla principal: toca un galpón. Los cuadritos A B C D muestran el avance de cada corral
   (gris = vacío, amarillo = en proceso, verde = meta alcanzada). Meta por defecto: 100 aves
   (se cambia con el engranaje ⚙).
-- Dentro del galpón: pon Fecha, Edad (días) y Núcleo, y toca un corral.
+- Dentro del galpón: pon Fecha y Edad (días) y toca un corral. El nombre de la Granja se escribe una sola vez y queda guardado para todos los galpones y jornadas hasta que lo cambies.
 - Dentro del corral: escribe cantidad de aves y peso total en KILOS de cada tanda
   (ej. 9 aves, 30.1 kg = 30.100 g) y toca "Agregar pesada". Abajo se ve siempre el total de aves,
   el peso total y el promedio. Un error se corrige con la ✕ de la fila.

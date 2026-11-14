@@ -30,7 +30,7 @@
     return m ? m[3] + '/' + m[2] + '/' + m[1] : (iso || '');
   }
 
-  function addSheet(wb, id, g, meta, Core) {
+  function addSheet(wb, id, g, meta, Core, granja) {
     g = g || {};
     const c = g.c || {};
     const ws = wb.addWorksheet('Galpón ' + id, {
@@ -54,11 +54,11 @@
     ws.getCell('A2').font = fnt({ size: 12, color: { argb: 'FF595959' } });
     ws.getCell('A2').alignment = CENTRO;
 
-    // Fecha / Núcleo / Edad / Galpón
+    // Fecha / Granja / Edad / Galpón
     const edad = Core.num(g.edad);
     const campos = [
       [1, 'FECHA', fechaTxt(g.fecha)],
-      [3, 'NÚCLEO', g.nucleo || ''],
+      [3, 'GRANJA', granja || ''],
       [5, 'EDAD (días)', isFinite(edad) && edad > 0 ? Math.round(edad) : ''],
       [7, 'GALPÓN', Number(id)]
     ];
@@ -236,7 +236,7 @@
     wb.creator = 'Eber Romero - Analista de sistemas';
     wb.created = new Date();
     ids.forEach(function (id) {
-      addSheet(wb, id, (state.galpones || {})[id], state.meta || 100, Core);
+      addSheet(wb, id, (state.galpones || {})[id], state.meta || 100, Core, state.granja);
     });
     return wb;
   }
