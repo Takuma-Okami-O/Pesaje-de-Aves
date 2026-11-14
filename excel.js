@@ -107,7 +107,7 @@
       // PESO PROM
       paint(ws, promRow, ca, promRow, ca, { fill: GRIS_CLARO, font: fnt({ bold: true, size: 10 }), align: CENTRO });
       ws.getCell(promRow, ca).value = 'PESO PROM';
-      paint(ws, promRow, cp, promRow, cp, { fill: GRIS_CLARO, font: fnt({ bold: true }), align: CENTRO, numFmt: '#,##0.0' });
+      paint(ws, promRow, cp, promRow, cp, { fill: GRIS_CLARO, font: fnt({ bold: true }), align: CENTRO, numFmt: '#,##0.00' });
       ws.getCell(promRow, cp).value = {
         formula: 'IF(SUM(' + la + first + ':' + la + last + ')=0,"",SUM(' + lp + first + ':' + lp + last + ')/SUM(' + la + first + ':' + la + last + '))',
         result: st.prom === null ? '' : st.prom
@@ -129,7 +129,7 @@
     paint(ws, gH, 3, gH, 6, { fill: GRIS, font: fnt({ bold: true }), align: CENTRO });
     ws.getCell(gH, 3).value = 'PESO PROMEDIO GALPÓN';
     ws.mergeCells(gV, 3, gV, 6);
-    paint(ws, gV, 3, gV, 6, { font: fnt({ bold: true, size: 15 }), align: CENTRO, numFmt: '#,##0.0" g"' });
+    paint(ws, gV, 3, gV, 6, { font: fnt({ bold: true, size: 15 }), align: CENTRO, numFmt: '#,##0.00" g"' });
     ws.getCell(gV, 3).value = {
       formula: 'IF(COUNT(' + promCells.join(',') + ')=0,"",AVERAGE(' + promCells.join(',') + '))',
       result: gs.galpon === null ? '' : gs.galpon
@@ -156,7 +156,7 @@
           formula: 'IF(ISNUMBER(' + avgRef + '),' + avgRef + '-D' + v + ',"")',
           result: gs.galpon === null ? '' : gs.galpon - Math.round(ref.peso)
         };
-        ws.getCell(v, 5).numFmt = '+#,##0.0;-#,##0.0;0.0';
+        ws.getCell(v, 5).numFmt = '+#,##0.00;-#,##0.00;0.00';
         const d = 'ROUND((' + avgRef + '-D' + v + ')/D' + v + '*100,1)';
         const est = gs.galpon === null ? '' : (function () {
           const p = Math.round((gs.galpon - Math.round(ref.peso)) / Math.round(ref.peso) * 1000) / 10;

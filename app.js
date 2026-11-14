@@ -96,7 +96,7 @@
       }).join('');
       tiles += '<a class="shed ' + st + '" href="#/g/' + i + '">' + shedSvg() +
         '<div class="in"><span class="num">' + i + '</span><span class="avg">' +
-        (s.galpon !== null ? C.fmt(s.galpon, 0) + ' g' : 'sin datos') + '</span></div>' +
+        (s.galpon !== null ? C.fmt(s.galpon, 2) + ' g' : 'sin datos') + '</span></div>' +
         '<div class="dots">' + dots + '</div></a>';
     }
     return '<header class="top"><div class="grow"><h1>Pesaje de Aves</h1><p>Agroinversiones SAI-RAM, C.A</p></div>' +
@@ -120,7 +120,7 @@
       faltan = '<div class="warn">Faltan aves para la meta (' + state.meta + ') en: ' + s.faltan.join(', ') + '</div>';
     }
     const big = '<div class="card big-card"><div class="lbl">Peso promedio del galpón</div><div class="val">' +
-      (s.galpon !== null ? C.fmt(s.galpon, 1) + ' g' : '—') + '</div><div class="sub">' + s.conDatos +
+      (s.galpon !== null ? C.fmt(s.galpon, 2) + ' g' : '—') + '</div><div class="sub">' + s.conDatos +
       ' de 4 corrales con datos · ' + C.fmt(s.totalAves, 0) + ' aves pesadas</div>' + faltan + '</div>';
 
     let cmpHtml;
@@ -135,7 +135,7 @@
       } else {
         const sg = m.diff >= 0 ? '+' : '';
         cmpHtml = '<div class="cmp ' + m.estado + '"><div class="badge">' + C.ESTADOS[m.estado].largo + '</div>' +
-          '<div>Día ' + m.dia + ' · estándar <b>' + C.fmt(m.ref, 0) + ' g</b>' + (m.exacto ? '' : ' (aprox.)') + ' · real <b>' + C.fmt(s.galpon, 1) + ' g</b></div>' +
+          '<div>Día ' + m.dia + ' · estándar <b>' + C.fmt(m.ref, 0) + ' g</b>' + (m.exacto ? '' : ' (aprox.)') + ' · real <b>' + C.fmt(s.galpon, 2) + ' g</b></div>' +
           '<div>Diferencia: ' + sg + C.fmt(m.diff, 1) + ' g (' + sg + C.fmt(m.pct, 1) + ' %) · "similar" = dentro de ±' + C.TOL + ' %</div></div>';
       }
     }
@@ -160,7 +160,7 @@
       const cls = st.aves >= state.meta ? 'ok' : (st.aves > 0 ? 'mid' : '');
       return '<a class="pen ' + cls + '" href="#/g/' + id + '/' + k + '"><span class="l">' + k + '</span>' +
         '<span class="t">' + C.fmt(st.aves, 0) + ' / ' + state.meta + ' aves</span>' +
-        '<span class="p">' + (st.prom !== null ? C.fmt(st.prom, 1) + ' g' : '—') + '</span></a>';
+        '<span class="p">' + (st.prom !== null ? C.fmt(st.prom, 2) + ' g' : '—') + '</span></a>';
     }).join('');
     return '<header class="top"><a class="ib" href="#/" aria-label="Volver">‹</a><div class="grow"><h1>Galpón ' + id + '</h1>' +
       '<p>Toca un corral para registrar pesos</p></div></header>' +
@@ -205,7 +205,7 @@
       '<div class="card"><h2>Pesadas (' + lista.length + ')</h2>' + rows + '</div></main>' +
       '<div class="sumbar"><div><small>Aves</small><b>' + C.fmt(st.aves, 0) + '</b></div>' +
       '<div><small>Peso total</small><b>' + C.fmt(st.peso, 0) + ' g</b></div>' +
-      '<div><small>Promedio</small><b>' + (st.prom !== null ? C.fmt(st.prom, 1) + ' g' : '—') + '</b></div></div>' + firma();
+      '<div><small>Promedio</small><b>' + (st.prom !== null ? C.fmt(st.prom, 2) + ' g' : '—') + '</b></div></div>' + firma();
   }
   function bindCorral() {
     const a = $('#in-a'), p = $('#in-p'), h = $('#hint');
@@ -213,7 +213,7 @@
       const av = C.num(a.value), pe = kgToG(C.num(p.value));
       if (av > 0 && pe > 0) {
         const pp = pe / av;
-        h.textContent = '= ' + C.fmt(pe, 0) + ' g  ·  ≈ ' + C.fmt(pp, 0) + ' g por ave';
+        h.textContent = '= ' + C.fmt(pe, 0) + ' g  ·  ≈ ' + C.fmt(pp, 2) + ' g por ave';
         h.className = 'hint' + (pp < 20 || pp > 6000 ? ' bad' : '');
       } else { h.innerHTML = '&nbsp;'; h.className = 'hint'; }
     }
