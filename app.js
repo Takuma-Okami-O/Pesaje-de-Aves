@@ -33,6 +33,8 @@
   function two(n) { return (n < 10 ? '0' : '') + n; }
   function today() { const d = new Date(); return d.getFullYear() + '-' + two(d.getMonth() + 1) + '-' + two(d.getDate()); }
   function $(s) { return document.querySelector(s); }
+  // El usuario escribe kg; la app trabaja y muestra en gramos
+  function kgToG(kg) { return Math.round(kg * 1000 * 10) / 10; }
   function fmtG(n) { return C.fmt(n, Math.abs(n - Math.round(n)) < 0.005 ? 0 : 1); }
   let toastTimer = null;
   function toast(msg, bad) {
@@ -191,7 +193,7 @@
       '<p>' + esc((g && g.nucleo) || 'Sin núcleo') + '</p></div></header>' +
       '<main><div class="card"><div class="row">' +
       '<div><label>Cantidad de aves</label><input type="number" inputmode="numeric" id="in-a" min="1" step="1" placeholder="Ej. 9"></div>' +
-      '<div><label>Peso total (g)</label><input type="text" inputmode="decimal" id="in-p" placeholder="Ej. 15300"></div></div>' +
+      '<div><label>Peso total (kg)</label><input type="text" inputmode="decimal" id="in-p" placeholder="Ej. 26.4"></div></div>' +
       '<div class="hint" id="hint">&nbsp;</div>' +
       '<button class="btn primary big" data-act="add">➕ Agregar pesada</button></div>' +
       '<div class="card"><div class="progtxt"><span>' + C.fmt(st.aves, 0) + ' / ' + meta + ' aves</span><span>' +
@@ -205,10 +207,10 @@
   function bindCorral() {
     const a = $('#in-a'), p = $('#in-p'), h = $('#hint');
     function upd() {
-      const av = C.num(a.value), pe = C.num(p.value);
+      const av = C.num(a.value), pe = kgToG(C.num(p.value));
       if (av > 0 && pe > 0) {
         const pp = pe / av;
-        h.textContent = '≈ ' + C.fmt(pp, 0) + ' g por ave';
+        h.textContent = '= ' + C.fmt(pe, 0) + ' g  ·  ≈ ' + C.fmt(pp, 0) + ' g por ave';
         h.className = 'hint' + (pp < 20 || pp > 6000 ? ' bad' : '');
       } else { h.innerHTML = '&nbsp;'; h.className = 'hint'; }
     }
@@ -220,9 +222,9 @@
   function addEntry() {
     const r = route();
     const a = $('#in-a'), p = $('#in-p');
-    const av = C.num(a.value), pe = C.num(p.value);
+    const av = C.num(a.value), pe = kgToG(C.num(p.value));
     if (!(av > 0) || Math.floor(av) !== av) { toast('Escribe la cantidad de aves (número entero)', true); a.focus(); return; }
-    if (!(pe > 0)) { toast('Escribe el peso total en gramos', true); p.focus(); return; }
+    if (!(pe > 0)) { toast('Escribe el peso total en kg (ej. 26.4)', true); p.focus(); return; }
     const pp = pe / av;
     if ((pp < 20 || pp > 6000) && !confirm('El peso da ' + C.fmt(pp, 0) + ' g por ave. ¿Es correcto?')) return;
     const g = ensure(r.id);
