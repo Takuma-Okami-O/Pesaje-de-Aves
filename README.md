@@ -5,7 +5,7 @@ Desarrollado por Analista de sistemas Eber Romero
 App Android 100 % offline para el formato FO-ENG-004 (Registro de pesaje de aves).
 12 galpones → 4 corrales (A, B, C, D) → pesadas (cantidad de aves + peso total en kg; la app lo convierte y muestra en gramos).
 Calcula promedio por corral y por galpón (promedio de los 4 corrales), compara con la
-tabla de referencia (días 13 a 28) y exporta el Excel con el formato de la planilla.
+tabla de referencia Ross 308 AP (días 0 a 56) y proyecta el alimento que debería consumir el ave y exporta el Excel con el formato de la planilla.
 Los datos quedan guardados en el teléfono; no usa internet.
 
 ## Cómo obtener el APK (una sola vez, con GitHub)
@@ -63,3 +63,12 @@ Ejemplo: una persona pesa los galpones 1 al 3 y otra los galpones 4 al 12.
 El archivo `.json` ("Guardar como archivo") sigue existiendo como alternativa, pero no es necesario.
 Peso promedio de la granja = promedio simple de los promedios de los galpones con datos.
 Conviene que cada persona pese galpones distintos: si el mismo galpón se carga en dos teléfonos hay que elegir uno.
+
+## Tabla de referencia y alimento (Ross 308 AP, mixto)
+
+- La tabla completa (día 0 a 56) está cargada en `core.js`. Con la **Edad (días)** del galpón, la app compara
+  el peso real con el objetivo de ese día (Por encima / Similar / Por debajo, ±3 %), en el galpón y en cada corral.
+- **Alimento estándar:** muestra cuántos gramos debería consumir cada ave ese día y el acumulado desde el alojamiento.
+  Si escribes **Aves en el galpón** (opcional) calcula los kg del galpón, y proyecta los próximos 7 días.
+- El Excel trae la proyección (con fórmulas: se puede cambiar el número de aves en la celda amarilla) y la
+  tabla de referencia con los días 7, 14, 21, 28, 35, 42, 49, 56 y el día actual resaltado.

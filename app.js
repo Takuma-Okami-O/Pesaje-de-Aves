@@ -168,6 +168,32 @@
   }
 
   // ---------- Vista: galpón ----------
+  function feedHtml(g) {
+    const edad = g ? g.edad : '';
+    if (!(C.num(edad) >= 1)) return '';
+    const P = C.projection(edad, g.poblacion, 7);
+    if (!P) return '';
+    const hoy = P.rows[0], pob = P.poblacion;
+    let h = '<div class="card"><h2>Alimento estándar · día ' + hoy.d + '</h2>' +
+      '<div style="font-size:15px;line-height:1.5">Por ave hoy: <b>' + C.fmt(hoy.ali, 0) + ' g</b> · acumulado desde el alojamiento: <b>' + C.fmt(hoy.acum, 0) + ' g</b></div>';
+    if (pob) {
+      h += '<div style="font-size:15px;line-height:1.5;margin-top:4px">Para <b>' + C.fmt(pob, 0) + ' aves</b>: hoy <b>' + C.fmt(hoy.aliGalpon, 1) +
+        ' kg</b> · acumulado <b>' + C.fmt(hoy.acumGalpon, 0) + ' kg</b></div>';
+    } else {
+      h += '<div class="hintbox" style="margin:8px 0 0">Escribe las <b>aves en el galpón</b> para ver el consumo total en kg.</div>';
+    }
+    if (P.rows.length > 1) {
+      let rows = '';
+      P.rows.forEach(function (r, i) {
+        rows += '<tr' + (i === 0 ? ' class="hl"' : '') + '><td>' + (i === 0 ? 'Hoy ' : '') + r.d + '</td><td>' + C.fmt(r.peso, 0) + '</td><td>' + C.fmt(r.ali, 0) + '</td><td>' + C.fmt(r.acum, 0) + '</td>' +
+          (pob ? '<td>' + C.fmt(r.aliGalpon, 1) + '</td><td>' + C.fmt(r.acumGalpon, 0) + '</td>' : '') + '</tr>';
+      });
+      h += '<details style="margin-top:10px"><summary style="font-weight:700;color:var(--gd);cursor:pointer">Proyección próximos ' + (P.rows.length - 1) + ' días</summary><div class="scroll"><table><thead><tr>' +
+        '<th>Día</th><th>Peso objetivo (g)</th><th>g/ave/día</th><th>g/ave acum.</th>' + (pob ? '<th>kg galpón/día</th><th>kg galpón acum.</th>' : '') +
+        '</tr></thead><tbody>' + rows + '</tbody></table></div></details>';
+    }
+    return h + '<div style="font-size:11.5px;color:var(--mut);margin-top:8px">Objetivo Ross 308 AP (mixto). Es lo que debería consumir según la tabla; el consumo real puede variar.</div></div>';
+  }
   function summaryHtml(id) {
     const g = state.galpones[id];
     const s = C.galponStats(g, state.meta);
@@ -182,13 +208,13 @@
 
     let cmpHtml;
     if (!(C.num(edad) > 0)) {
-      cmpHtml = '<div class="hintbox">Escribe la <b>edad (días)</b> para comparar el peso con la tabla de referencia (días 13 a 28).</div>';
+      cmpHtml = '<div class="hintbox">Escribe la <b>edad (días)</b> para comparar el peso con la tabla de referencia y proyectar el alimento (días 0 a 56).</div>';
     } else if (s.galpon === null) {
       cmpHtml = '<div class="hintbox">Cuando haya peso promedio se comparará con la referencia del día ' + Math.round(C.num(edad)) + '.</div>';
     } else {
       const m = C.compare(s.galpon, edad);
       if (m.sinRef) {
-        cmpHtml = '<div class="hintbox">Sin referencia para el día ' + m.dia + ' (la tabla cubre del 13 al 28).</div>';
+        cmpHtml = '<div class="hintbox">Sin referencia para el día ' + m.dia + ' (la tabla cubre del 0 al 56).</div>';
       } else {
         const sg = m.diff >= 0 ? '+' : '';
         cmpHtml = '<div class="cmp ' + m.estado + '"><div class="badge">' + C.ESTADOS[m.estado].largo + '</div>' +
@@ -196,16 +222,17 @@
           '<div>Diferencia: ' + sg + C.fmt(m.diff, 1) + ' g (' + sg + C.fmt(m.pct, 1) + ' %) · "similar" = dentro de ±' + C.TOL + ' %</div></div>';
       }
     }
-    return big + cmpHtml;
+    return big + cmpHtml + feedHtml(g);
   }
   function refTable(edad) {
     const e = Math.round(C.num(edad));
     let rows = '';
     C.REF.forEach(function (f) {
-      rows += '<tr' + (f.d === e ? ' class="hl"' : '') + '><td>' + f.d + '</td><td>' + f.peso + '</td><td>' + f.gan + '</td><td>' + f.prom +
-        '</td><td>' + f.ali + '</td><td>' + f.acum + '</td><td>' + String(f.ca.toFixed(3)).replace('.', ',') + '</td></tr>';
+      const v = function (x) { return x === null ? '' : x; };
+      rows += '<tr' + (f.d === e ? ' class="hl"' : '') + '><td>' + f.d + '</td><td>' + f.peso + '</td><td>' + v(f.gan) + '</td><td>' + v(f.prom) +
+        '</td><td>' + v(f.ali) + '</td><td>' + v(f.acum) + '</td><td>' + (f.ca === null ? '' : f.ca.toFixed(3).replace('.', ',')) + '</td></tr>';
     });
-    return '<details class="card"><summary>Tabla de referencia (días 13 a 28)</summary><div class="scroll"><table><thead><tr>' +
+    return '<details class="card"><summary>Tabla de referencia Ross 308 AP (días 0 a 56)</summary><div class="scroll" style="max-height:380px;overflow-y:auto"><table><thead><tr>' +
       '<th>Día</th><th>Peso corporal (g)</th><th>Ganancia diaria (g)</th><th>Prom. ganancia (g)</th><th>Alimento diario (g)</th><th>Alimento acum. (g)</th><th>CA</th>' +
       '</tr></thead><tbody>' + rows + '</tbody></table></div></details>';
   }
@@ -223,7 +250,8 @@
       '<p>Toca un corral para registrar pesos</p></div></header>' +
       '<main><div class="card fields">' +
       '<div><label>Fecha</label><input type="date" id="f-fecha" value="' + esc(g.fecha || today()) + '"></div>' +
-      '<div><label>Edad (días)</label><input type="number" inputmode="numeric" id="f-edad" min="1" max="70" value="' + esc(g.edad) + '" placeholder="Ej. 21"></div>' +
+      '<div><label>Edad (días)</label><input type="number" inputmode="numeric" id="f-edad" min="1" max="56" value="' + esc(g.edad) + '" placeholder="Ej. 21"></div>' +
+      '<div class="w2"><label>Aves en el galpón (opcional)</label><input type="number" inputmode="numeric" id="f-pob" min="0" value="' + esc(g.poblacion) + '" placeholder="Ej. 12000"></div>' +
       '<div class="w2"><label>Granja</label><input type="text" id="f-granja" value="' + esc(state.granja) + '" placeholder="Ej. Catalda II"></div></div>' +
       '<div class="pens">' + pens + '</div>' +
       '<div id="sum">' + summaryHtml(id) + '</div>' +
@@ -234,6 +262,14 @@
   }
 
   // ---------- Vista: corral ----------
+  function cmpCorral(g, st) {
+    if (!g || st.prom === null || !(C.num(g.edad) >= 1)) return '';
+    const m = C.compare(st.prom, g.edad);
+    if (!m || m.sinRef) return '';
+    const sg = m.diff >= 0 ? '+' : '';
+    return '<div class="cmp ' + m.estado + '"><div class="badge">' + C.ESTADOS[m.estado].largo + '</div><div>Día ' + m.dia + ' · estándar <b>' + C.fmt(m.ref, 0) +
+      ' g</b> · este corral <b>' + C.fmt(st.prom, 2) + ' g</b> (' + sg + C.fmt(m.pct, 1) + ' %)</div></div>';
+  }
   function viewCorral(id, k) {
     const g = state.galpones[id];
     const lista = (g && g.c && g.c[k]) || [];
@@ -256,6 +292,7 @@
       '<div><label>Peso total (kg)</label><input type="text" inputmode="decimal" id="in-p" placeholder="Ej. 26.4"></div></div>' +
       '<div class="hint" id="hint">&nbsp;</div>' +
       '<button class="btn primary big" data-act="add">➕ Agregar pesada</button></div>' +
+      cmpCorral(g, st) +
       '<div class="card"><div class="progtxt"><span>' + C.fmt(st.aves, 0) + ' / ' + meta + ' aves</span><span>' +
       (ok ? '✔ Meta alcanzada' : 'Faltan ' + C.fmt(meta - st.aves, 0)) + '</span></div>' +
       '<div class="bar ' + (ok ? 'ok' : '') + '"><i style="width:' + pct + '%"></i></div></div>' +
@@ -343,6 +380,10 @@
     if (t.id === 'f-fecha') { ensure(r.id).fecha = t.value || today(); save(); }
     else if (t.id === 'f-granja') {
       state.granja = t.value.trim(); save();
+    }
+    else if (t.id === 'f-pob') {
+      ensure(r.id).poblacion = t.value; save();
+      $('#sum').innerHTML = summaryHtml(r.id);
     }
     else if (t.id === 'f-edad') {
       ensure(r.id).edad = t.value; save();
@@ -449,7 +490,7 @@
       if (!(C.galponStats(g, state.meta).totalAves > 0)) return;
       const c = {};
       C.CORRALES.forEach(function (k) { c[k] = ((g.c && g.c[k]) || []).map(function (e) { return [e.a, e.p]; }); });
-      out.galpones[id] = { fecha: g.fecha, edad: g.edad, c: c };
+      out.galpones[id] = { fecha: g.fecha, edad: g.edad, poblacion: g.poblacion, c: c };
     });
     return 'PESAJE1:' + btoa(unescape(encodeURIComponent(JSON.stringify(out)))) + '#';
   }

@@ -172,7 +172,7 @@
         ws.getCell(v, 6).value = '—';
       }
       r = v + 1;
-      const nota = ref ? (ref.exacto ? '' : 'Peso estándar estimado entre los días de la tabla.') : 'La tabla de referencia cubre de 13 a 28 días.';
+      const nota = ref ? (ref.exacto ? '' : 'Peso estándar estimado entre los días de la tabla.') : 'La tabla de referencia cubre del día 0 al 56.';
       if (nota) {
         ws.mergeCells(r, 3, r, 6);
         ws.getCell(r, 3).value = nota + ' "Similar" = dentro de ±' + Core.TOL + ' %.';
@@ -188,10 +188,58 @@
       }
     }
 
-    // Tabla de referencia
+    // Proyección de alimento (estándar Ross 308 AP)
+    const P = (isFinite(edad) && edad >= 1) ? Core.projection(edad, g.poblacion, 7) : null;
+    if (P) {
+      r += 1;
+      ws.mergeCells(r, 1, r, 3);
+      ws.getCell(r, 1).value = 'PROYECCIÓN DE ALIMENTO (estándar)';
+      ws.getCell(r, 1).font = fnt({ bold: true, size: 10, color: { argb: 'FF595959' } });
+      ws.getCell(r, 4).value = 'AVES EN EL GALPÓN';
+      ws.mergeCells(r, 4, r, 5);
+      ws.getCell(r, 4).font = fnt({ bold: true, size: 10, color: { argb: 'FF595959' } });
+      ws.getCell(r, 4).alignment = { horizontal: 'right', vertical: 'middle' };
+      const popCell = ws.getCell(r, 6);
+      popCell.value = P.poblacion || '';
+      popCell.numFmt = '#,##0';
+      popCell.font = fnt({ bold: true });
+      popCell.alignment = { horizontal: 'center', vertical: 'middle' };
+      popCell.border = BORDE;
+      popCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: AMARILLO } };
+      const popRef = '$F$' + r;
+      r++;
+      const ph = ['Día', 'Peso objetivo (g)', 'Consumo diario (g/ave)', 'Acumulado (g/ave)', 'Consumo diario galpón (kg)', 'Acumulado galpón (kg)'];
+      ph.forEach(function (t, i) { ws.getCell(r, 1 + i).value = t; });
+      paint(ws, r, 1, r, 6, { fill: GRIS, font: fnt({ bold: true, size: 10 }), align: CENTRO });
+      ws.getRow(r).height = 34;
+      r++;
+      P.rows.forEach(function (row, idx) {
+        paint(ws, r, 1, r, 6, { fill: idx === 0 ? AMARILLO : 'FFFFFFFF', font: fnt({ size: 10, bold: idx === 0 }), align: CENTRO });
+        ws.getCell(r, 1).value = row.d;
+        ws.getCell(r, 2).value = row.peso;
+        ws.getCell(r, 2).numFmt = '#,##0';
+        ws.getCell(r, 3).value = row.ali;
+        ws.getCell(r, 4).value = row.acum;
+        ws.getCell(r, 4).numFmt = '#,##0';
+        ws.getCell(r, 5).value = { formula: 'IF(ISNUMBER(' + popRef + '),C' + r + '*' + popRef + '/1000,"")', result: row.aliGalpon === null ? '' : row.aliGalpon };
+        ws.getCell(r, 5).numFmt = '#,##0.0';
+        ws.getCell(r, 6).value = { formula: 'IF(ISNUMBER(' + popRef + '),D' + r + '*' + popRef + '/1000,"")', result: row.acumGalpon === null ? '' : row.acumGalpon };
+        ws.getCell(r, 6).numFmt = '#,##0';
+        ws.getRow(r).height = 18;
+        r++;
+      });
+      ws.mergeCells(r, 1, r, 6);
+      ws.getCell(r, 1).value = 'Objetivo Ross 308 AP (mixto): lo que debería consumir según la tabla. Escribe las aves del galpón en la celda amarilla para calcular los kg.';
+      ws.getCell(r, 1).font = fnt({ italic: true, size: 9, color: { argb: 'FF595959' } });
+      ws.getCell(r, 1).alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
+      ws.getRow(r).height = 26;
+      r++;
+    }
+
+    // Tabla de referencia (días de control semanales + el día actual)
     r += 1;
     ws.mergeCells(r, 1, r, 8);
-    ws.getCell(r, 1).value = 'TABLA DE REFERENCIA';
+    ws.getCell(r, 1).value = 'TABLA DE REFERENCIA - ROSS 308 AP (MIXTO)';
     ws.getCell(r, 1).font = fnt({ bold: true, size: 10, color: { argb: 'FF595959' } });
     ws.getCell(r, 1).alignment = { horizontal: 'left', vertical: 'middle' };
     r++;
@@ -203,15 +251,19 @@
     paint(ws, r, 1, r, 8, { fill: GRIS, font: fnt({ bold: true, size: 10 }), align: CENTRO });
     ws.getRow(r).height = 42;
     r++;
-    Core.REF.forEach(function (f, idx) {
+    const edadR = isFinite(edad) && edad >= 0 ? Math.round(edad) : -1;
+    const dias = [7, 14, 21, 28, 35, 42, 49, 56];
+    if (edadR >= 0 && edadR <= Core.REF_MAX && dias.indexOf(edadR) < 0) { dias.push(edadR); dias.sort(function (a, b) { return a - b; }); }
+    dias.forEach(function (dd, idx) {
+      const f = Core.REF[dd];
       const vals = [f.d, f.peso, f.gan, f.prom, f.ali, f.acum, f.ca];
-      const resaltar = isFinite(edad) && Math.round(edad) === f.d;
+      const resaltar = edadR === f.d;
       ws.mergeCells(r, 7, r, 8);
       paint(ws, r, 1, r, 8, {
         fill: resaltar ? AMARILLO : (idx % 2 ? 'FFFFFFFF' : GRIS_CLARO),
         font: fnt({ size: 10, bold: resaltar }), align: CENTRO
       });
-      vals.forEach(function (x, i) { ws.getCell(r, 1 + i).value = x; });
+      vals.forEach(function (x, i) { ws.getCell(r, 1 + i).value = x === null ? '' : x; });
       ws.getCell(r, 7).numFmt = '0.000';
       ws.getRow(r).height = 18;
       r++;
