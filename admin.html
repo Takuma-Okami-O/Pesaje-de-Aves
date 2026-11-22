@@ -37,8 +37,10 @@
   <header><h1>Licencia — Pesaje de Aves</h1><p>Panel privado del administrador. No forma parte de la app que usan los galpones.</p></header>
 
   <div id="setupWarn" class="card hide">
-    <p class="muted"><b>Falta configurar <code>firebase-config.js</code></b> (PROJECT_ID y API_KEY) en este mismo archivo/carpeta.
-    Son datos públicos del proyecto, no secretos. Lee el README, sección "Licencia centralizada".</p>
+    <p class="muted"><b>Falta configurar tus datos de Firebase.</b> Abre este archivo con un editor de texto,
+    busca la línea que dice <code>LICENSE_CONFIG</code> cerca del final y pon ahí tu <code>PROJECT_ID</code>
+    y tu <code>API_KEY</code> (los mismos que pusiste en <code>firebase-config.js</code>). Son datos públicos
+    del proyecto, no secretos. Lee el README, sección "Licencia centralizada".</p>
   </div>
 
   <div id="login" class="card">
@@ -73,7 +75,15 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js"></script>
+<script>
+  /* Pon aquí los MISMOS valores que escribiste en firebase-config.js.
+   * Este panel va aparte y no depende de ningún otro archivo, para poder
+   * abrirlo como un solo archivo sin que falle al compartirlo o descargarlo. */
+  window.LICENSE_CONFIG = {
+    PROJECT_ID: 'pesaje-de-aves',
+    API_KEY: 'AIzaSyCQqnBm_va2Qm8QhTPQBO8e6E5WtqHL4uo'
+  };
+</script>
 <script>
 (function () {
   'use strict';
@@ -82,6 +92,17 @@
   const msg = (t, bad) => { const e = $('#msg'); e.textContent = t; e.className = bad ? 'bad' : 'ok'; };
 
   if (!cfg.PROJECT_ID || !cfg.API_KEY) { $('#setupWarn').classList.remove('hide'); $('#login').classList.add('hide'); return; }
+
+  // Abierto como archivo descargado (content:// o file://) en vez de una página web real:
+  // el inicio de sesión suele quedarse pegado. Avisamos antes de que lo intente.
+  if (!/^https?:$/.test(location.protocol)) {
+    $('#setupWarn').classList.remove('hide');
+    $('#setupWarn').innerHTML = '<p class="muted"><b>Ábrelo como página web, no como archivo descargado.</b> ' +
+      'Lo abriste directo desde las descargas (' + location.protocol + '), y así el inicio de sesión se queda pegado. ' +
+      'Sube este archivo a tu repositorio de GitHub y actívale "GitHub Pages" (gratis) para tener un enlace ' +
+      'https:// propio, o ábrelo en una computadora eligiendo "Abrir con → Chrome" en vez del visor de descargas. ' +
+      'Ver README, sección "Licencia centralizada".</p>';
+  }
 
   firebase.initializeApp({ apiKey: cfg.API_KEY, projectId: cfg.PROJECT_ID, authDomain: cfg.PROJECT_ID + '.firebaseapp.com' });
   const auth = firebase.auth();
@@ -113,8 +134,14 @@
 
   $('#btnLogin').addEventListener('click', async function () {
     msg('Entrando…');
-    try { await auth.signInWithEmailAndPassword($('#email').value.trim(), $('#pass').value); msg('', false); }
-    catch (e) { msg('No se pudo entrar: ' + e.message, true); }
+    const timeout = new Promise(function (_, rej) {
+      setTimeout(function () { rej(new Error('Tardó demasiado. Es muy probable que esta página esté abierta como archivo ' +
+        'descargado y no como página web: ábrela con "Abrir con → Chrome", o súbela a GitHub Pages (ver README).')); }, 12000);
+    });
+    try {
+      await Promise.race([auth.signInWithEmailAndPassword($('#email').value.trim(), $('#pass').value), timeout]);
+      msg('', false);
+    } catch (e) { msg('No se pudo entrar: ' + e.message, true); }
   });
   $('#btnSalir').addEventListener('click', function () { auth.signOut(); });
 

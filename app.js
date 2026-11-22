@@ -5,7 +5,16 @@
 
   const C = window.Core;
   const XL = window.PesajeExcel;
-  const L = window.License;
+  // Si license.js no llegó a cargar (archivo faltante, caché vieja, etc.), se usa
+  // esta versión de respaldo que simplemente nunca bloquea: la licencia es un
+  // añadido y JAMÁS debe poder tumbar la app de pesar aves.
+  const L = window.License || {
+    blankCache: function () { return { installedAt: '1970-01-01' }; },
+    evaluate: function () { return { allowed: true, state: 'sin-modulo-licencia' }; },
+    shouldTryNow: function () { return false; },
+    parseFirestoreDoc: function () { return { active: true, validUntil: null, note: '' }; },
+    mensaje: function () { return { t: 'Licencia no disponible', d: 'Contacta al administrador.' }; }
+  };
   const KEY = 'pesajeAves.v1';
   const LKEY = 'pesajeAves.license.v1';
   const FIRMA = 'Desarrollado por Analista de sistemas Eber Romero';
@@ -663,5 +672,5 @@
     });
   }
 
-  startApp();
+  try { startApp(); } catch (e) { render(); } // la licencia nunca debe impedir que la app funcione
 })();

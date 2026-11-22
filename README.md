@@ -127,13 +127,30 @@ condiciones de uso que acuerdes), no es algo que deba quedar oculto.
    ```
    Sube ese archivo a GitHub junto con los demás (también se usa en la app de los teléfonos,
    y no es información secreta: la seguridad la dan las reglas del paso 3, no esta clave).
-8. Abre `admin.html` (tu panel, no se incluye en el APK) en un navegador — puedes
-   abrirlo como archivo local, o subirlo aparte a un sitio privado. Entra con tu
-   correo y contraseña, escribe un código o nota para este mes, los días de vigencia
-   (31 por defecto) y pulsa **Activar / renovar licencia**.
-9. Para renovar cada mes: vuelve a abrir `admin.html`, entra, y pulsa
+8. **Abre `admin.html` como página web, no como archivo descargado.** `admin.html`
+   nunca va dentro del APK, es solo tu panel. Si lo abres directo desde
+   "Descargas" en el teléfono (la barra de direcciones muestra algo como
+   `content://...`), el inicio de sesión se queda pegado en "Entrando…" para
+   siempre. Dos formas de evitarlo:
+   - **Recomendado — GitHub Pages (gratis, un enlace fijo para siempre):** en tu
+     repositorio de GitHub entra a **Settings → Pages**, en "Source" elige
+     **"Deploy from a branch"**, selecciona la rama `main` (o `master`) y la
+     carpeta `/ (root)`, y guarda. En uno o dos minutos tu panel queda disponible
+     en `https://TU-USUARIO.github.io/TU-REPOSITORIO/admin.html`. Guarda ese
+     enlace (por ejemplo en tus favoritos) y úsalo cada mes.
+   - **Alternativa — desde una computadora:** no le hagas doble clic al archivo;
+     haz clic derecho sobre `admin.html` → "Abrir con" → elige tu navegador
+     (Chrome, Edge, etc.) directamente.
+   Entra con tu correo y contraseña, escribe un código o nota para este mes, los
+   días de vigencia (31 por defecto) y pulsa **Activar / renovar licencia**.
+9. Para renovar cada mes: vuelve a abrir `admin.html` (desde el enlace de GitHub
+   Pages que guardaste, o con "Abrir con"), entra, y pulsa
    **Activar / renovar licencia** de nuevo. Para bloquear la app de inmediato, usa
    **Desactivar licencia**.
+
+> **Nota:** `admin.html` es un panel privado para ti; aunque GitHub Pages lo deja
+> en un enlace público, nadie puede cambiar la licencia sin tu correo y
+> contraseña de Firebase (eso lo protegen las reglas de seguridad del paso 3).
 
 El plazo de 10 días de margen y los 3 días de instalación están en `license.js`
 (`GRACE_DAYS` e `INSTALL_GRACE_DAYS`); si quieres otros números, dímelo.
