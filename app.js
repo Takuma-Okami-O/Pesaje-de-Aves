@@ -5,7 +5,9 @@
 
   const C = window.Core;
   const XL = window.PesajeExcel;
+  const L = window.License;
   const KEY = 'pesajeAves.v1';
+  const LKEY = 'pesajeAves.license.v1';
   const FIRMA = 'Desarrollado por Analista de sistemas Eber Romero';
   const app = document.getElementById('app');
 
@@ -595,5 +597,71 @@
   }
   window.__combine = { mergeBackup: mergeBackup, decodeAny: decodeAny, encodeState: encodeState };
 
-  render();
+  // ---------- Licencia (ver license.js) ----------
+  function loadLic() {
+    try {
+      const raw = localStorage.getItem(LKEY);
+      if (raw) { const c = JSON.parse(raw); if (c && c.installedAt) return c; }
+    } catch (e) { /* sin almacenamiento */ }
+    return L.blankCache();
+  }
+  function saveLic(c) { try { localStorage.setItem(LKEY, JSON.stringify(c)); } catch (e) { /* best-effort */ } }
+  let lic = loadLic();
+
+  function lockScreen(ev) {
+    const m = L.mensaje(ev);
+    app.innerHTML = '<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px;text-align:center;background:var(--gd);color:#fff">' +
+      '<div style="font-size:52px;margin-bottom:10px">🔒</div>' +
+      '<h1 style="font-size:21px;margin:0 0 8px">' + esc(m.t) + '</h1>' +
+      '<p style="font-size:15px;opacity:.9;max-width:320px;margin:0 0 22px">' + esc(m.d) + '</p>' +
+      '<button id="lic-retry" class="btn" style="background:#fff;border-color:#fff;max-width:220px">↻ Reintentar</button>' +
+      '</div>';
+    const b = document.getElementById('lic-retry');
+    if (b) b.addEventListener('click', function () { checkLicense(true); });
+  }
+
+  function licenseConfigured() {
+    const cfg = window.LICENSE_CONFIG || {};
+    return !!(cfg.PROJECT_ID && cfg.API_KEY);
+  }
+
+  // Intenta confirmar la licencia contra Firestore (solo lectura). Si no hay
+  // internet o no está configurada, no cambia nada: se sigue usando lo guardado.
+  async function checkLicense(force) {
+    if (!licenseConfigured()) return; // modo libre: sin Firebase configurado, no se exige licencia
+    if (!force && !L.shouldTryNow(lic)) return;
+    const cfg = window.LICENSE_CONFIG;
+    const url = 'https://firestore.googleapis.com/v1/projects/' + cfg.PROJECT_ID +
+      '/databases/(default)/documents/license/status?key=' + cfg.API_KEY;
+    lic.lastTryAt = new Date().toISOString();
+    try {
+      const res = await fetch(url, { cache: 'no-store' });
+      if (!res.ok) throw new Error('http ' + res.status);
+      const doc = L.parseFirestoreDoc(await res.json());
+      lic.active = doc.active;
+      lic.validUntil = doc.validUntil;
+      lic.note = doc.note;
+      lic.lastOkAt = new Date().toISOString();
+      saveLic(lic);
+      const before = route();
+      const ev = L.evaluate(lic);
+      if (!ev.allowed) { lockScreen(ev); }
+      else if (!before || app.querySelector('#lic-retry')) { render(); }
+    } catch (e) {
+      saveLic(lic); // guarda al menos el intento, aunque haya fallado
+    }
+  }
+
+  function startApp() {
+    if (!licenseConfigured()) { render(); return; } // sin Firebase configurado: funciona libre, como antes
+    const ev = L.evaluate(lic);
+    if (!ev.allowed) lockScreen(ev); else render();
+    checkLicense(false);
+    setInterval(function () { checkLicense(false); }, 60 * 60 * 1000); // reintenta cada hora si hace falta
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'visible') checkLicense(false);
+    });
+  }
+
+  startApp();
 })();

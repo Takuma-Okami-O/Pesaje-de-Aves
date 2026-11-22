@@ -26,8 +26,11 @@ jobs:
       - name: Preparar carpeta www
         run: |
           mkdir -p www
-          cp index.html app.js core.js excel.js www/
+          cp index.html app.js core.js excel.js license.js www/
           cp node_modules/exceljs/dist/exceljs.min.js www/
+          if [ -f firebase-config.js ]; then cp firebase-config.js www/; else
+            printf 'window.LICENSE_CONFIG = { PROJECT_ID: "", API_KEY: "" };\n' > www/firebase-config.js; fi
+          # admin.html NO se copia: ese panel es solo para el administrador, no para el APK
 
       - name: Crear proyecto Android
         run: npx cap add android

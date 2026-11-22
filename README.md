@@ -72,3 +72,68 @@ Conviene que cada persona pese galpones distintos: si el mismo galpón se carga 
   Si escribes **Aves en el galpón** (opcional) calcula los kg del galpón, y proyecta los próximos 7 días.
 - El Excel trae la proyección (con fórmulas: se puede cambiar el número de aves en la celda amarilla) y la
   tabla de referencia con los días 7, 14, 21, 28, 35, 42, 49, 56 y el día actual resaltado.
+
+## Licencia centralizada (control mensual desde un solo lugar)
+
+Esto es opcional: mientras no lo configures, la app funciona libre, como hasta ahora.
+Sirve para que tú controles, desde un solo panel, que la app siga funcionando en todos
+los teléfonos de la granja. Si un mes no renuevas, se bloquea sola en todos.
+
+**Cómo funciona:** cada teléfono, cuando tiene señal (wifi o datos), pregunta en segundo
+plano si la licencia sigue activa, y guarda la respuesta por hasta 10 días. Mientras ese
+plazo no se cumpla, el teléfono sigue pesando aves sin problema aunque esté sin señal
+dentro del galpón. Si pasan más de 10 días sin lograr confirmar, o si tú la desactivas,
+la app muestra un aviso ("Licencia no activa / Licencia vencida") y no deja pesar hasta
+que vuelva a confirmarse. Un teléfono recién instalado tiene 3 días de margen para
+conseguir señal por primera vez.
+
+Esto requiere que la empresa sepa que la app funciona así (que forma parte de las
+condiciones de uso que acuerdes), no es algo que deba quedar oculto.
+
+### Configuración (una sola vez, 10–15 minutos)
+
+1. Entra a https://console.firebase.google.com, inicia sesión con una cuenta de Google
+   y crea un proyecto nuevo (el plan gratuito "Spark" alcanza de sobra).
+2. En el menú lateral, **Compilación → Firestore Database** → "Crear base de datos" →
+   modo producción → elige cualquier región.
+3. Entra a **Firestore Database → Reglas** y reemplaza todo por esto (cambia
+   `TU_UID_AQUI` por el UID que obtienes en el paso 5):
+   ```
+   rules_version = '2';
+   service cloud.firestore {
+     match /databases/{database}/documents {
+       match /license/status {
+         allow read: if true;
+         allow write: if request.auth != null && request.auth.uid == "TU_UID_AQUI";
+       }
+     }
+   }
+   ```
+   Publica los cambios.
+4. En **Firestore Database → Datos**, crea manualmente el documento inicial:
+   colección `license` → documento con ID `status` → agrega los campos:
+   `active` (boolean) = `true`, `validUntil` (string) = una fecha `AAAA-MM-DD` cercana
+   (por ejemplo, mañana), `note` (string) = vacío.
+5. Entra a **Compilación → Authentication** → "Comenzar" → método **Correo y
+   contraseña** → habilítalo → pestaña **Users** → "Agregar usuario": pon tu correo y
+   una contraseña segura. Esa es tu cuenta de administrador; el UID que aparece junto a
+   tu usuario es el que pegas en el paso 3.
+6. En **Configuración del proyecto** (el engranaje) → "Tus apps" → agrega una app
+   **Web** (ícono `</>`), ponle un nombre y regístrala. Te muestra un bloque `firebaseConfig`
+   con `projectId` y `apiKey`: copia esos dos valores.
+7. Abre `firebase-config.js` en el proyecto y pon esos dos valores:
+   ```js
+   window.LICENSE_CONFIG = { PROJECT_ID: 'tu-projectId', API_KEY: 'tu-apiKey' };
+   ```
+   Sube ese archivo a GitHub junto con los demás (también se usa en la app de los teléfonos,
+   y no es información secreta: la seguridad la dan las reglas del paso 3, no esta clave).
+8. Abre `admin.html` (tu panel, no se incluye en el APK) en un navegador — puedes
+   abrirlo como archivo local, o subirlo aparte a un sitio privado. Entra con tu
+   correo y contraseña, escribe un código o nota para este mes, los días de vigencia
+   (31 por defecto) y pulsa **Activar / renovar licencia**.
+9. Para renovar cada mes: vuelve a abrir `admin.html`, entra, y pulsa
+   **Activar / renovar licencia** de nuevo. Para bloquear la app de inmediato, usa
+   **Desactivar licencia**.
+
+El plazo de 10 días de margen y los 3 días de instalación están en `license.js`
+(`GRACE_DAYS` e `INSTALL_GRACE_DAYS`); si quieres otros números, dímelo.
