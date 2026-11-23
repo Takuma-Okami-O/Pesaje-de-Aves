@@ -93,32 +93,54 @@
     else if (r.v === 'lic') app.innerHTML = viewLic();
     else app.innerHTML = viewCorral(r.id, r.k);
     if (key !== lastRoute) { window.scrollTo(0, 0); lastRoute = key; }
+    if (r.v === 'home') bindHomeSecret();
     if (r.v === 'corral') bindCorral();
     if (r.v === 'lic') bindLic();
   }
 
-  // ---------- Diagnóstico de licencia (no aparece en el menú; entra por #/lic) ----------
+  // ---------- Diagnóstico de licencia (pantalla técnica oculta: 7 toques en el título) ----------
   function viewLic() {
     const cfg = window.LICENSE_CONFIG || {};
     const ev = L.evaluate(lic);
-    const row = function (k, v) { return '<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--line);font-size:13px"><span style="color:var(--mut)">' + esc(k) + '</span><span style="text-align:right;word-break:break-all">' + esc(String(v)) + '</span></div>'; };
-    return '<header class="top"><a class="ib" href="#/" aria-label="Volver">‹</a><div class="grow"><h1>Diagnóstico de licencia</h1></div></header>' +
-      '<main><div class="card">' +
-      row('Firebase configurado', licenseConfigured() ? 'sí' : 'no') +
-      row('PROJECT_ID', cfg.PROJECT_ID || '(vacío)') +
-      row('API_KEY', cfg.API_KEY ? (cfg.API_KEY.slice(0, 6) + '…') : '(vacío)') +
-      row('license.js cargó', window.License ? 'sí' : 'no (usando modo seguro de respaldo)') +
-      row('Estado evaluado', ev.state) +
-      row('¿Permitido?', ev.allowed ? 'sí' : 'NO (debería bloquear)') +
-      row('active (caché)', lic.active) + row('validUntil (caché)', lic.validUntil) + row('note (caché)', lic.note) +
-      row('lastOkAt', lic.lastOkAt || '(nunca)') + row('lastTryAt', lic.lastTryAt || '(nunca)') +
-      row('instaladoEl', lic.installedAt) + row('último error de red', lic.lastError || '(ninguno)') +
-      '</div><button class="btn primary" id="lic-check" style="margin-bottom:14px">↻ Verificar licencia ahora</button>' +
-      '<p class="muted" style="font-size:12.5px;color:var(--mut)">Esta pantalla es solo para revisar problemas. Vuelve atrás para seguir usando la app normal.</p></main>';
+    const ok = ev.allowed;
+    const row = function (k, v, mono) {
+      return '<div style="display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--line);font-size:13px">' +
+        '<span style="color:var(--mut);font-weight:600">' + esc(k) + '</span>' +
+        '<span style="text-align:right;word-break:break-all' + (mono ? ';font-family:ui-monospace,Menlo,monospace;font-size:12px' : '') + '">' + esc(String(v)) + '</span></div>';
+    };
+    const section = function (title, body) {
+      return '<div class="card"><h2 style="margin:0 0 6px">' + esc(title) + '</h2>' + body + '</div>';
+    };
+    return '<header class="top"><a class="ib" href="#/" aria-label="Volver">‹</a><div class="grow"><h1>Diagnóstico de licencia</h1><p>Solo para soporte técnico</p></div></header>' +
+      '<main>' +
+      '<div class="cmp ' + (ok ? 'similar' : 'bajo') + '" style="display:flex;align-items:center;gap:12px">' +
+      '<div style="font-size:30px;line-height:1">' + (ok ? '✅' : '🔒') + '</div>' +
+      '<div><div class="badge">' + (ok ? 'La app funciona con normalidad' : 'La app está bloqueada') + '</div>' +
+      '<div>Estado: <b>' + esc(ev.state) + '</b></div></div></div>' +
+
+      section('Conexión con Firebase',
+        row('Configurado', licenseConfigured() ? '✔ sí' : '✘ no') +
+        row('Proyecto', cfg.PROJECT_ID || '(vacío)') +
+        row('Clave de API', cfg.API_KEY ? (cfg.API_KEY.slice(0, 6) + '••••') : '(vacío)', true) +
+        row('Módulo license.js', window.License ? '✔ cargó' : '✘ no cargó (modo de respaldo)')) +
+
+      section('Licencia guardada en este teléfono',
+        row('Activa', lic.active === false ? 'no' : (lic.active === true ? 'sí' : '—')) +
+        row('Vence', lic.validUntil || '—') +
+        row('Nota del administrador', lic.note || '—') +
+        row('Última confirmación OK', lic.lastOkAt ? lic.lastOkAt.replace('T', ' ').slice(0, 16) : 'nunca', true) +
+        row('Último intento', lic.lastTryAt ? lic.lastTryAt.replace('T', ' ').slice(0, 16) : 'nunca', true) +
+        row('Instalada el', lic.installedAt, true) +
+        row('Último error de red', lic.lastError || '(ninguno)')) +
+
+      '<button class="btn primary big" id="lic-check">↻ Verificar licencia ahora</button>' +
+      '<div class="hintbox mt">Esta pantalla es solo para revisar problemas de conexión con la licencia. ' +
+      'No afecta tus datos de pesaje. Toca ‹ para volver a la app normal.</div>' +
+      '</main>';
   }
   function bindLic() {
     const b = document.getElementById('lic-check');
-    if (b) b.addEventListener('click', async function () { b.textContent = 'Verificando…'; await checkLicense(true); render(); });
+    if (b) b.addEventListener('click', async function () { b.textContent = 'Verificando…'; b.disabled = true; await checkLicense(true); render(); });
   }
 
   // ---------- Resumen de la granja ----------
@@ -193,7 +215,7 @@
         (s.galpon !== null ? C.fmt(s.galpon, 2) + ' g' : 'sin datos') + '</span></div>' +
         '<div class="dots">' + dots + '</div></a>';
     }
-    return '<header class="top"><div class="grow"><h1>Pesaje de Aves</h1><p>Agroinversiones SAI-RAM, C.A</p></div>' +
+    return '<header class="top"><div class="grow"><h1 id="app-title">Pesaje de Aves</h1><p>Agroinversiones SAI-RAM, C.A</p></div>' +
       '<button class="ib" data-act="meta" aria-label="Meta de aves">⚙</button></header>' +
       '<main><div class="card" style="padding:10px 14px"><div style="font-size:13px;color:var(--mut)">Toca un galpón para pesar. ' +
       'Meta: <b>' + state.meta + ' aves</b> por corral. Todo se guarda en este teléfono, sin internet.</div></div>' +
@@ -202,8 +224,20 @@
       '<button class="btn primary big" data-act="export-all">📊 Exportar todos a Excel</button>' +
       '<a class="btn small mt" href="#/respaldo" style="margin-bottom:10px">🔄 Respaldo y combinar datos de otros teléfonos</a>' +
       '<button class="btn danger small" data-act="clear-all">Nueva jornada (borrar todo)</button>' +
-      '</main>' + firma() +
-      '<div style="text-align:center;margin:6px 0 16px"><a href="#/lic" style="font-size:11.5px;color:var(--mut)">Diagnóstico de licencia</a></div>';
+      '</main>' + firma();
+  }
+  // Toca 7 veces seguidas el título "Pesaje de Aves" para entrar al diagnóstico
+  // de licencia (pantalla técnica, no es para los operadores de los galpones).
+  let titleTaps = 0, titleTapTimer = null;
+  function bindHomeSecret() {
+    const t = document.getElementById('app-title');
+    if (!t) return;
+    t.addEventListener('click', function () {
+      titleTaps++;
+      clearTimeout(titleTapTimer);
+      titleTapTimer = setTimeout(function () { titleTaps = 0; }, 1500);
+      if (titleTaps >= 7) { titleTaps = 0; location.hash = '#/lic'; }
+    });
   }
 
   // ---------- Vista: galpón ----------
