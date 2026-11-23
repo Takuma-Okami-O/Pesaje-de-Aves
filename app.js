@@ -79,6 +79,7 @@
     }
     if (p[0] === 'granja') return { v: 'granja' };
     if (p[0] === 'respaldo') return { v: 'respaldo' };
+    if (p[0] === 'lic') return { v: 'lic' };
     return { v: 'home' };
   }
   let lastRoute = '';
@@ -89,9 +90,35 @@
     else if (r.v === 'granja') app.innerHTML = viewGranja();
     else if (r.v === 'respaldo') app.innerHTML = viewRespaldo();
     else if (r.v === 'galpon') app.innerHTML = viewGalpon(r.id);
+    else if (r.v === 'lic') app.innerHTML = viewLic();
     else app.innerHTML = viewCorral(r.id, r.k);
     if (key !== lastRoute) { window.scrollTo(0, 0); lastRoute = key; }
     if (r.v === 'corral') bindCorral();
+    if (r.v === 'lic') bindLic();
+  }
+
+  // ---------- Diagnóstico de licencia (no aparece en el menú; entra por #/lic) ----------
+  function viewLic() {
+    const cfg = window.LICENSE_CONFIG || {};
+    const ev = L.evaluate(lic);
+    const row = function (k, v) { return '<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--line);font-size:13px"><span style="color:var(--mut)">' + esc(k) + '</span><span style="text-align:right;word-break:break-all">' + esc(String(v)) + '</span></div>'; };
+    return '<header class="top"><a class="ib" href="#/" aria-label="Volver">‹</a><div class="grow"><h1>Diagnóstico de licencia</h1></div></header>' +
+      '<main><div class="card">' +
+      row('Firebase configurado', licenseConfigured() ? 'sí' : 'no') +
+      row('PROJECT_ID', cfg.PROJECT_ID || '(vacío)') +
+      row('API_KEY', cfg.API_KEY ? (cfg.API_KEY.slice(0, 6) + '…') : '(vacío)') +
+      row('license.js cargó', window.License ? 'sí' : 'no (usando modo seguro de respaldo)') +
+      row('Estado evaluado', ev.state) +
+      row('¿Permitido?', ev.allowed ? 'sí' : 'NO (debería bloquear)') +
+      row('active (caché)', lic.active) + row('validUntil (caché)', lic.validUntil) + row('note (caché)', lic.note) +
+      row('lastOkAt', lic.lastOkAt || '(nunca)') + row('lastTryAt', lic.lastTryAt || '(nunca)') +
+      row('instaladoEl', lic.installedAt) + row('último error de red', lic.lastError || '(ninguno)') +
+      '</div><button class="btn primary" id="lic-check" style="margin-bottom:14px">↻ Verificar licencia ahora</button>' +
+      '<p class="muted" style="font-size:12.5px;color:var(--mut)">Esta pantalla es solo para revisar problemas. Vuelve atrás para seguir usando la app normal.</p></main>';
+  }
+  function bindLic() {
+    const b = document.getElementById('lic-check');
+    if (b) b.addEventListener('click', async function () { b.textContent = 'Verificando…'; await checkLicense(true); render(); });
   }
 
   // ---------- Resumen de la granja ----------
@@ -175,7 +202,8 @@
       '<button class="btn primary big" data-act="export-all">📊 Exportar todos a Excel</button>' +
       '<a class="btn small mt" href="#/respaldo" style="margin-bottom:10px">🔄 Respaldo y combinar datos de otros teléfonos</a>' +
       '<button class="btn danger small" data-act="clear-all">Nueva jornada (borrar todo)</button>' +
-      '</main>' + firma();
+      '</main>' + firma() +
+      '<div style="text-align:center;margin:6px 0 16px"><a href="#/lic" style="font-size:11.5px;color:var(--mut)">Diagnóstico de licencia</a></div>';
   }
 
   // ---------- Vista: galpón ----------
@@ -651,12 +679,14 @@
       lic.validUntil = doc.validUntil;
       lic.note = doc.note;
       lic.lastOkAt = new Date().toISOString();
+      lic.lastError = '';
       saveLic(lic);
       const before = route();
       const ev = L.evaluate(lic);
       if (!ev.allowed) { lockScreen(ev); }
       else if (!before || app.querySelector('#lic-retry')) { render(); }
     } catch (e) {
+      lic.lastError = (e && e.message) || String(e);
       saveLic(lic); // guarda al menos el intento, aunque haya fallado
     }
   }
