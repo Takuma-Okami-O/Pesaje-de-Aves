@@ -53,20 +53,41 @@
   </div>
 
   <div id="panel" class="hide">
+    <div class="card">
+      <h2 style="margin-top:0;font-size:15px;color:var(--gd)">Granja / cliente</h2>
+      <label>Código de cliente</label>
+      <input type="text" id="cliente" value="status" placeholder="status (granja de siempre)">
+      <button class="btn ghost" id="btnCargar">🔄 Cargar este cliente</button>
+      <p class="muted">Usa <code>status</code> para la granja de siempre. Para otra granja, escribe el mismo código
+      que le pusiste en "Diagnóstico de licencia → Código de cliente" de su teléfono (ej. <code>CATALDA2</code>).</p>
+    </div>
     <div id="statusBox" class="status"></div>
     <div class="card">
-      <h2 style="margin-top:0;font-size:15px;color:var(--gd)">Renovar licencia</h2>
+      <h2 style="margin-top:0;font-size:15px;color:var(--gd)">Renovar licencia (del cliente de arriba)</h2>
       <label>Código / nota de este mes (para tu propio control)</label>
       <input type="text" id="code" placeholder="Ej. NOV-2026">
       <label>Días de vigencia a partir de hoy</label>
       <input type="number" id="dias" value="31" min="1">
       <button class="btn" id="btnRenovar">✔ Activar / renovar licencia</button>
-      <p class="muted">Todos los teléfonos quedarán activos la próxima vez que tengan señal (hasta 10 días de margen si se quedan sin internet).</p>
+      <p class="muted">Todos los teléfonos con este código de cliente quedarán activos la próxima vez que tengan señal (hasta 10 días de margen si se quedan sin internet).</p>
     </div>
     <div class="card">
       <h2 style="margin-top:0;font-size:15px;color:var(--rd)">Desactivar ahora</h2>
-      <p class="muted">Bloquea la app en todos los teléfonos en cuanto se conecten, sin esperar a que venza la fecha.</p>
+      <p class="muted">Bloquea la app de este cliente en todos sus teléfonos en cuanto se conecten, sin esperar a que venza la fecha.</p>
       <button class="btn danger" id="btnDesactivar">✕ Desactivar licencia</button>
+    </div>
+    <div class="card">
+      <h2 style="margin-top:0;font-size:15px;color:var(--gd)">Publicar actualización de la app</h2>
+      <p class="muted">Esto avisa (con un aviso suave, no bloquea nada) a TODOS los clientes que hay una versión
+      más nueva. Sube primero el nuevo APK a una "Release" de GitHub para tener un enlace fijo, y pégalo aquí.</p>
+      <label>Número de versión (debe coincidir con CURRENT_VERSION en app.js)</label>
+      <input type="text" id="verNum" placeholder="Ej. 1.1.0">
+      <label>Enlace de descarga del nuevo APK</label>
+      <input type="text" id="verUrl" placeholder="https://github.com/.../releases/download/...">
+      <label>Notas (opcional, se le muestran al usuario)</label>
+      <input type="text" id="verNotas" placeholder="Ej. Corrige el reporte de alimento">
+      <button class="btn" id="btnPublicarVer">📣 Publicar aviso de actualización</button>
+      <div id="verMsg" class="muted" style="margin-top:4px"></div>
     </div>
     <button class="btn ghost" id="btnSalir">Salir</button>
   </div>
@@ -107,7 +128,9 @@
   firebase.initializeApp({ apiKey: cfg.API_KEY, projectId: cfg.PROJECT_ID, authDomain: cfg.PROJECT_ID + '.firebaseapp.com' });
   const auth = firebase.auth();
   const db = firebase.firestore();
-  const docRef = db.collection('license').doc('status');
+  function clienteId() { return ($('#cliente').value || 'status').trim() || 'status'; }
+  function docRef() { return db.collection('license').doc(clienteId()); }
+  const verRef = db.collection('app').doc('version');
 
   function pad(n) { return String(n).padStart(2, '0'); }
   function isoPlusDays(days) {
@@ -116,15 +139,16 @@
   }
 
   async function mostrarEstado() {
+    const box = $('#statusBox');
+    box.className = 'status'; box.innerHTML = '<b>Cargando ' + clienteId() + '…</b>';
     try {
-      const snap = await docRef.get();
+      const snap = await docRef().get();
       const d = snap.exists ? snap.data() : {};
-      const box = $('#statusBox');
       const ok = d.active !== false && d.validUntil && d.validUntil >= isoPlusDays(0);
       box.className = 'status ' + (ok ? 'ok' : 'bad');
-      box.innerHTML = '<b>' + (d.active === false ? 'Desactivada manualmente' : (ok ? 'Activa' : 'Vencida')) + '</b>' +
+      box.innerHTML = '<b>' + clienteId() + ' — ' + (!snap.exists ? 'sin activar nunca' : (d.active === false ? 'Desactivada manualmente' : (ok ? 'Activa' : 'Vencida'))) + '</b>' +
         'Válida hasta: ' + (d.validUntil || '—') + (d.note ? ' · nota: ' + d.note : '');
-    } catch (e) { $('#statusBox').outerHTML = '<div id="statusBox" class="status bad"><b>No se pudo leer el estado</b>' + e.message + '</div>'; }
+    } catch (e) { box.className = 'status bad'; box.innerHTML = '<b>No se pudo leer el estado</b>' + e.message; }
   }
 
   auth.onAuthStateChanged(function (user) {
@@ -144,24 +168,35 @@
     } catch (e) { msg('No se pudo entrar: ' + e.message, true); }
   });
   $('#btnSalir').addEventListener('click', function () { auth.signOut(); });
+  $('#btnCargar').addEventListener('click', mostrarEstado);
 
   $('#btnRenovar').addEventListener('click', async function () {
     const dias = $('#dias').value, code = $('#code').value.trim();
     if (!(Number(dias) > 0)) { msg('Pon un número de días válido', true); return; }
     try {
-      await docRef.set({ active: true, validUntil: isoPlusDays(dias), note: code, updatedAt: new Date().toISOString() }, { merge: true });
-      msg('Listo. Licencia activa hasta ' + isoPlusDays(dias) + '.', false);
+      await docRef().set({ active: true, validUntil: isoPlusDays(dias), note: code, updatedAt: new Date().toISOString() }, { merge: true });
+      msg('Listo. "' + clienteId() + '" activa hasta ' + isoPlusDays(dias) + '.', false);
       mostrarEstado();
     } catch (e) { msg('No se pudo guardar: ' + e.message, true); }
   });
 
   $('#btnDesactivar').addEventListener('click', async function () {
-    if (!confirm('Esto bloqueará la app en todos los teléfonos en cuanto tengan señal. ¿Continuar?')) return;
+    if (!confirm('Esto bloqueará la app de "' + clienteId() + '" en todos sus teléfonos en cuanto tengan señal. ¿Continuar?')) return;
     try {
-      await docRef.set({ active: false, updatedAt: new Date().toISOString() }, { merge: true });
-      msg('Licencia desactivada.', false);
+      await docRef().set({ active: false, updatedAt: new Date().toISOString() }, { merge: true });
+      msg('Licencia de "' + clienteId() + '" desactivada.', false);
       mostrarEstado();
     } catch (e) { msg('No se pudo guardar: ' + e.message, true); }
+  });
+
+  $('#btnPublicarVer').addEventListener('click', async function () {
+    const verNum = $('#verNum').value.trim(), verUrl = $('#verUrl').value.trim(), verNotas = $('#verNotas').value.trim();
+    const vmsg = (t, bad) => { $('#verMsg').textContent = t; $('#verMsg').className = bad ? 'bad' : 'ok'; };
+    if (!verNum) { vmsg('Pon el número de versión', true); return; }
+    try {
+      await verRef.set({ latest: verNum, url: verUrl, notas: verNotas, updatedAt: new Date().toISOString() }, { merge: true });
+      vmsg('Publicado. Todos los clientes verán el aviso en un rato.', false);
+    } catch (e) { vmsg('No se pudo publicar: ' + e.message, true); }
   });
 })();
 </script>

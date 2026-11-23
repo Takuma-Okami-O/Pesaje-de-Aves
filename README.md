@@ -97,12 +97,19 @@ condiciones de uso que acuerdes), no es algo que deba quedar oculto.
 2. En el menú lateral, **Compilación → Firestore Database** → "Crear base de datos" →
    modo producción → elige cualquier región.
 3. Entra a **Firestore Database → Reglas** y reemplaza todo por esto (cambia
-   `TU_UID_AQUI` por el UID que obtienes en el paso 5):
+   `TU_UID_AQUI` por el UID que obtienes en el paso 5). Con `{clienteId}` en vez de
+   `status`, una misma base de datos sirve para TODAS las granjas/clientes que uses,
+   cada una con su propia licencia independiente (ver sección "Varias granjas/clientes"
+   más abajo):
    ```
    rules_version = '2';
    service cloud.firestore {
      match /databases/{database}/documents {
-       match /license/status {
+       match /license/{clienteId} {
+         allow read: if true;
+         allow write: if request.auth != null && request.auth.uid == "TU_UID_AQUI";
+       }
+       match /app/version {
          allow read: if true;
          allow write: if request.auth != null && request.auth.uid == "TU_UID_AQUI";
        }
@@ -154,3 +161,41 @@ condiciones de uso que acuerdes), no es algo que deba quedar oculto.
 
 El plazo de 10 días de margen y los 3 días de instalación están en `license.js`
 (`GRACE_DAYS` e `INSTALL_GRACE_DAYS`); si quieres otros números, dímelo.
+
+### Varias granjas / clientes (cada una con su propia licencia)
+
+Un solo APK y un solo proyecto de Firebase pueden servir a varias granjas distintas,
+cada una activada y cortada por separado, sin que una afecte a la otra:
+
+1. Al entregar un teléfono a una granja nueva, abre la app, toca 7 veces seguidas
+   el título **"Pesaje de Aves"** (arriba) para entrar al **Diagnóstico de licencia**,
+   toca **"Cambiar código de cliente"** y ponle un código único a esa granja (por
+   ejemplo `CATALDA2`, `LAFINCA`, sin espacios). Hazlo en todos los teléfonos que vayan
+   a esa misma granja — un mismo código = comparten una sola licencia.
+   La granja original (la tuya) no necesita hacer nada: por defecto todos los teléfonos
+   usan el código `status`, igual que hasta ahora.
+2. En `admin.html`, arriba de todo hay un campo **"Código de cliente"**. Escribe ahí
+   el código de la granja que quieras revisar o renovar (o déjalo en `status` para la
+   tuya) y pulsa **"Cargar este cliente"**. Desde ahí, **Renovar licencia** y
+   **Desactivar ahora** afectan solo a esa granja — las demás siguen como estaban.
+3. No hace falta "crear" nada de antemano: la primera vez que actives un código nuevo
+   con **Activar / renovar licencia**, Firebase crea su documento automáticamente.
+
+### Publicar una actualización de la app
+
+Como la app no está en Google Play, instalar una versión nueva requiere que cada
+usuario reinstale el APK a mano. Para avisarles sin interrumpir su trabajo (es solo
+un mensaje, nunca bloquea nada):
+
+1. Antes de compilar una nueva versión, sube el número en `app.js`, en la constante
+   `CURRENT_VERSION` (por ejemplo de `'1.0.0'` a `'1.1.0'`).
+2. Compílala, pruébala, y en GitHub crea una **Release** (menú lateral "Releases" →
+   "Create a new release") adjuntando el `.apk` descargado del Action — eso te da un
+   enlace de descarga permanente (los de la pestaña Actions caducan).
+3. En `admin.html`, baja hasta **"Publicar actualización de la app"**, pon el mismo
+   número de versión, pega el enlace de la Release y, si quieres, una nota corta
+   (ej. "Corrige el reporte de alimento"), y pulsa **"Publicar aviso de actualización"**.
+4. Todos los teléfonos de todas las granjas (revisan esto una vez por hora) mostrarán
+   un aviso amarillo en la pantalla principal con un botón para copiar el enlace de
+   descarga; cada usuario decide cuándo instalarla. El aviso desaparece solo para
+   quien toque "Ya la tengo".

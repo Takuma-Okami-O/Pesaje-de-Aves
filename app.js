@@ -16,9 +16,29 @@
     mensaje: function () { return { t: 'Licencia no disponible', d: 'Contacta al administrador.' }; }
   };
   const KEY = 'pesajeAves.v1';
-  const LKEY = 'pesajeAves.license.v1';
+  const CKEY = 'pesajeAves.cliente'; // código de la granja/cliente (para licencias separadas)
+  const VKEY = 'pesajeAves.update.dismissed'; // última versión de actualización que el usuario ya vio
+  const CURRENT_VERSION = '1.0.0'; // súbela a mano en cada versión que publiques
   const FIRMA = 'Desarrollado por Analista de sistemas Eber Romero';
   const app = document.getElementById('app');
+
+  // ---------- Código de cliente (una granja = un código = una licencia aparte) ----------
+  // Por defecto todos los teléfonos usan 'status' (el documento de siempre), así que
+  // actualizar esta app no cambia nada para la granja que ya la usa. Solo hace falta
+  // poner un código distinto cuando distribuyas la app a OTRA granja/cliente.
+  function getCliente() {
+    try { return (localStorage.getItem(CKEY) || 'status').trim() || 'status'; }
+    catch (e) { return 'status'; }
+  }
+  function setCliente(code) {
+    const c = String(code || '').trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '');
+    try { localStorage.setItem(CKEY, c || 'status'); } catch (e) { /* best-effort */ }
+    return c || 'status';
+  }
+  function licKey() {
+    const c = getCliente();
+    return c === 'status' ? 'pesajeAves.license.v1' : ('pesajeAves.license.' + c);
+  }
 
   // ---------- Estado persistente ----------
   function blank() { return { v: 1, meta: 100, granja: '', galpones: {} }; }
@@ -122,7 +142,15 @@
         row('Configurado', licenseConfigured() ? '✔ sí' : '✘ no') +
         row('Proyecto', cfg.PROJECT_ID || '(vacío)') +
         row('Clave de API', cfg.API_KEY ? (cfg.API_KEY.slice(0, 6) + '••••') : '(vacío)', true) +
-        row('Módulo license.js', window.License ? '✔ cargó' : '✘ no cargó (modo de respaldo)')) +
+        row('Módulo license.js', window.License ? '✔ cargó' : '✘ no cargó (modo de respaldo)') +
+        row('Versión de esta app', CURRENT_VERSION, true)) +
+
+      section('Cliente / granja (para licencias separadas)',
+        row('Código de este teléfono', getCliente(), true) +
+        '<div class="hintbox mt" style="margin-bottom:10px">Todos los teléfonos con el mismo código comparten UNA licencia. ' +
+        'Para otra granja/cliente, ponle aquí un código distinto (ej. CATALDA2) antes de entregar el teléfono: ' +
+        'así podrás activarle o cortarle la licencia por separado en tu panel.</div>' +
+        '<button class="btn small" id="lic-cliente">✎ Cambiar código de cliente</button>') +
 
       section('Licencia guardada en este teléfono',
         row('Activa', lic.active === false ? 'no' : (lic.active === true ? 'sí' : '—')) +
@@ -141,6 +169,18 @@
   function bindLic() {
     const b = document.getElementById('lic-check');
     if (b) b.addEventListener('click', async function () { b.textContent = 'Verificando…'; b.disabled = true; await checkLicense(true); render(); });
+    const c = document.getElementById('lic-cliente');
+    if (c) c.addEventListener('click', function () {
+      const actual = getCliente();
+      const v = prompt('Código de cliente para ESTE teléfono (letras/números, sin espacios).\n' +
+        'Usa "status" para la granja de siempre. Un código nuevo = licencia nueva, hay que activarla en el panel.', actual);
+      if (v === null) return;
+      const nuevo = setCliente(v);
+      lic = loadLic(); // recarga con la caché del nuevo código (puede estar vacía = sin activar aún)
+      toast('Código de cliente: ' + nuevo);
+      checkLicense(true);
+      render();
+    });
   }
 
   // ---------- Resumen de la granja ----------
@@ -219,6 +259,7 @@
       '<button class="ib" data-act="meta" aria-label="Meta de aves">⚙</button></header>' +
       '<main><div class="card" style="padding:10px 14px"><div style="font-size:13px;color:var(--mut)">Toca un galpón para pesar. ' +
       'Meta: <b>' + state.meta + ' aves</b> por corral. Todo se guarda en este teléfono, sin internet.</div></div>' +
+      updateBanner() +
       farmCard() +
       '<div class="sheds">' + tiles + '</div>' +
       '<button class="btn primary big" data-act="export-all">📊 Exportar todos a Excel</button>' +
@@ -419,6 +460,16 @@
       const g = ensure(r.id);
       g.c[r.k].splice(+b.getAttribute('data-i'), 1);
       save(); render();
+    }
+    else if (act === 'ver-copy') {
+      const u = b.getAttribute('data-url');
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(u).then(function () { toast('Enlace copiado. Pégalo en Chrome para descargar.'); }).catch(function () { toast(u); });
+      } else { toast(u); }
+    }
+    else if (act === 'ver-dismiss') {
+      try { localStorage.setItem(VKEY, b.getAttribute('data-v')); } catch (e) { /* noop */ }
+      render();
     }
     else if (act === 'meta') {
       const v = prompt('Meta de aves a pesar por corral:', state.meta);
@@ -671,12 +722,12 @@
   // ---------- Licencia (ver license.js) ----------
   function loadLic() {
     try {
-      const raw = localStorage.getItem(LKEY);
+      const raw = localStorage.getItem(licKey());
       if (raw) { const c = JSON.parse(raw); if (c && c.installedAt) return c; }
     } catch (e) { /* sin almacenamiento */ }
     return L.blankCache();
   }
-  function saveLic(c) { try { localStorage.setItem(LKEY, JSON.stringify(c)); } catch (e) { /* best-effort */ } }
+  function saveLic(c) { try { localStorage.setItem(licKey(), JSON.stringify(c)); } catch (e) { /* best-effort */ } }
   let lic = loadLic();
 
   function lockScreen(ev) {
@@ -703,7 +754,7 @@
     if (!force && !L.shouldTryNow(lic)) return;
     const cfg = window.LICENSE_CONFIG;
     const url = 'https://firestore.googleapis.com/v1/projects/' + cfg.PROJECT_ID +
-      '/databases/(default)/documents/license/status?key=' + cfg.API_KEY;
+      '/databases/(default)/documents/license/' + encodeURIComponent(getCliente()) + '?key=' + cfg.API_KEY;
     lic.lastTryAt = new Date().toISOString();
     try {
       const res = await fetch(url, { cache: 'no-store' });
@@ -725,14 +776,60 @@
     }
   }
 
+  // ---------- Aviso de nueva versión disponible (no bloquea nada, solo informa) ----------
+  const VCKEY = 'pesajeAves.version.cache';
+  function loadVerCache() { try { return JSON.parse(localStorage.getItem(VCKEY) || '{}') || {}; } catch (e) { return {}; } }
+  function saveVerCache(v) { try { localStorage.setItem(VCKEY, JSON.stringify(v)); } catch (e) { /* best-effort */ } }
+  function cmpVer(a, b) {
+    const pa = String(a || '0').split('.').map(Number), pb = String(b || '0').split('.').map(Number);
+    for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+      const x = pa[i] || 0, y = pb[i] || 0;
+      if (x !== y) return x > y ? 1 : -1;
+    }
+    return 0;
+  }
+  async function checkVersion() {
+    if (!licenseConfigured()) return;
+    const vc = loadVerCache();
+    if (vc.lastTryAt && (Date.now() - new Date(vc.lastTryAt).getTime()) < 60 * 60 * 1000) return; // 1 vez por hora
+    const cfg = window.LICENSE_CONFIG;
+    const url = 'https://firestore.googleapis.com/v1/projects/' + cfg.PROJECT_ID +
+      '/databases/(default)/documents/app/version?key=' + cfg.API_KEY;
+    vc.lastTryAt = new Date().toISOString();
+    try {
+      const res = await fetch(url, { cache: 'no-store' });
+      if (res.ok) {
+        const json = await res.json();
+        const f = (json && json.fields) || {};
+        vc.latest = f.latest && f.latest.stringValue || '';
+        vc.url = f.url && f.url.stringValue || '';
+        vc.notas = f.notas && f.notas.stringValue || '';
+      }
+    } catch (e) { /* sin internet: no pasa nada, se reintenta más tarde */ }
+    saveVerCache(vc);
+    if (route().v === 'home') render();
+  }
+  function updateBanner() {
+    const vc = loadVerCache();
+    if (!vc.latest || cmpVer(vc.latest, CURRENT_VERSION) <= 0) return '';
+    let dismissed = ''; try { dismissed = localStorage.getItem(VKEY) || ''; } catch (e) { /* noop */ }
+    if (dismissed === vc.latest) return '';
+    return '<div class="card" style="border-color:var(--am);background:var(--aml)">' +
+      '<div style="font-weight:800;color:#6b4a00;margin-bottom:4px">🆕 Hay una actualización disponible (v' + esc(vc.latest) + ')</div>' +
+      (vc.notas ? '<div style="font-size:13px;margin-bottom:8px">' + esc(vc.notas) + '</div>' : '') +
+      (vc.url ? '<button class="btn small" data-act="ver-copy" data-url="' + esc(vc.url) + '">📋 Copiar enlace de descarga</button>' : '') +
+      '<button class="btn small mt" data-act="ver-dismiss" data-v="' + esc(vc.latest) + '">Ya la tengo / recordar después</button></div>';
+  }
+
   function startApp() {
     if (!licenseConfigured()) { render(); return; } // sin Firebase configurado: funciona libre, como antes
     const ev = L.evaluate(lic);
     if (!ev.allowed) lockScreen(ev); else render();
     checkLicense(false);
-    setInterval(function () { checkLicense(false); }, 60 * 60 * 1000); // reintenta cada hora si hace falta
+    checkVersion();
+    setInterval(function () { checkLicense(false); checkVersion(); }, 60 * 60 * 1000); // reintenta cada hora si hace falta
     document.addEventListener('visibilitychange', function () {
-      if (document.visibilityState === 'visible') checkLicense(false);
+      if (document.visibilityState === 'visible') { checkLicense(false); checkVersion(); }
     });
   }
 
