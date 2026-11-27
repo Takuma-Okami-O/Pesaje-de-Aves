@@ -181,21 +181,45 @@ cada una activada y cortada por separado, sin que una afecte a la otra:
 3. No hace falta "crear" nada de antemano: la primera vez que actives un código nuevo
    con **Activar / renovar licencia**, Firebase crea su documento automáticamente.
 
-### Publicar una actualización de la app
+### Publicar una actualización de la app (sin mandarle el APK a nadie)
 
-Como la app no está en Google Play, instalar una versión nueva requiere que cada
-usuario reinstale el APK a mano. Para avisarles sin interrumpir su trabajo (es solo
-un mensaje, nunca bloquea nada):
+Como la app no está en Google Play, Android exige SIEMPRE que el usuario confirme
+con un toque la instalación de cualquier app que no venga de una tienda oficial —
+eso no se puede evitar de ninguna forma sin inscribir cada teléfono en un sistema
+empresarial de administración remota (Android Enterprise / MDM). Pero fuera de ese
+único toque, todo lo demás es automático: tú nunca tienes que mandar el .apk por
+WhatsApp ni pedirle a nadie que reinstale nada a mano.
 
 1. Antes de compilar una nueva versión, sube el número en `app.js`, en la constante
    `CURRENT_VERSION` (por ejemplo de `'1.0.0'` a `'1.1.0'`).
 2. Compílala, pruébala, y en GitHub crea una **Release** (menú lateral "Releases" →
    "Create a new release") adjuntando el `.apk` descargado del Action — eso te da un
-   enlace de descarga permanente (los de la pestaña Actions caducan).
+   enlace de descarga permanente (los de la pestaña Actions caducan, los de una
+   Release no).
 3. En `admin.html`, baja hasta **"Publicar actualización de la app"**, pon el mismo
    número de versión, pega el enlace de la Release y, si quieres, una nota corta
    (ej. "Corrige el reporte de alimento"), y pulsa **"Publicar aviso de actualización"**.
-4. Todos los teléfonos de todas las granjas (revisan esto una vez por hora) mostrarán
-   un aviso amarillo en la pantalla principal con un botón para copiar el enlace de
-   descarga; cada usuario decide cuándo instalarla. El aviso desaparece solo para
-   quien toque "Ya la tengo".
+4. Todos los teléfonos de todas las granjas revisan esto solos, una vez por hora.
+   Cuando detectan una versión nueva, muestran un aviso amarillo en la pantalla
+   principal con un botón **"⬇️ Descargar e instalar actualización"**. El usuario lo
+   toca una vez, la app descarga el archivo sola y le abre a Android el instalador
+   — Android le pide confirmar con un segundo toque ("Instalar" / "Actualizar"), y
+   listo. Nunca tiene que buscar un archivo, ni saber qué es un APK.
+   - La primera vez que un teléfono instale una actualización así, Android puede
+     pedirle además activar **"Permitir desde esta fuente"** para la app (una sola
+     vez por teléfono, luego no vuelve a preguntar).
+   - El aviso desaparece solo para quien toque "Ya la tengo / recordar después".
+   - Si por algún motivo el teléfono no tiene internet en ese momento, puede volver
+     a intentarlo más tarde tocando el mismo botón otra vez.
+
+**Para que las actualizaciones instalen ENCIMA de la app existente (sin que nadie
+tenga que desinstalar antes)**, todas tus compilaciones deben firmarse siempre con
+la misma firma. Esto ya está configurado en `build-apk.yml`, pero depende de que
+exista el secreto `DEBUG_KEYSTORE_BASE64` en tu repositorio
+(**Settings → Secrets and variables → Actions → New repository secret**), con el
+contenido del archivo `debug.keystore.b64` que te entregué. Si ese secreto no
+existe, cada compilación queda con una firma distinta y las actualizaciones
+automáticas fallarán al instalar (Android las rechaza por seguridad) — en ese caso
+sí haría falta desinstalar una vez. Guarda ese archivo en un lugar seguro: si lo
+pierdes, la siguiente actualización pedirá desinstalar una última vez para poder
+fijar una firma nueva.

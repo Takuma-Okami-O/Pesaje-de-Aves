@@ -49,6 +49,20 @@ jobs:
       - name: Sincronizar
         run: npx cap sync android
 
+      - name: Usar firma estable (para que las actualizaciones instalen sin desinstalar)
+        env:
+          DEBUG_KEYSTORE_BASE64: ${{ secrets.DEBUG_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$DEBUG_KEYSTORE_BASE64" ]; then
+            mkdir -p ~/.android
+            echo "$DEBUG_KEYSTORE_BASE64" | base64 -d > ~/.android/debug.keystore
+            echo "Firma estable aplicada."
+          else
+            echo "Aviso: no hay secreto DEBUG_KEYSTORE_BASE64 configurado. Se usará una firma" \
+                 "temporal distinta en cada compilación, y las actualizaciones necesitarán" \
+                 "desinstalar la app vieja antes de instalar la nueva."
+          fi
+
       - name: Compilar APK
         run: |
           cd android

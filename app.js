@@ -116,9 +116,33 @@
     else if (r.v === 'lic') app.innerHTML = viewLic();
     else app.innerHTML = viewCorral(r.id, r.k);
     if (key !== lastRoute) { window.scrollTo(0, 0); lastRoute = key; }
-    if (r.v === 'home') bindHomeSecret();
+    if (r.v === 'home') { bindHomeSecret(); maybeShowUpdateModal(); }
     if (r.v === 'corral') bindCorral();
     if (r.v === 'lic') bindLic();
+  }
+
+  // Ventana emergente obligatoria al abrir la app cuando hay una versión nueva:
+  // solo el aviso y un botón "Actualizar" que descarga e instala directo. No se
+  // puede cerrar ni posponer (si no hay forma de instalar sola, no se muestra,
+  // para no dejar al usuario atascado).
+  function maybeShowUpdateModal() {
+    const vc = loadVerCache();
+    if (!vc.latest || cmpVer(vc.latest, CURRENT_VERSION) <= 0) return;
+    if (!canNativeInstall() || !vc.url) return;
+    if (document.getElementById('update-modal')) return;
+    const wrap = document.createElement('div');
+    wrap.id = 'update-modal';
+    wrap.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px';
+    wrap.innerHTML = '<div class="card" style="max-width:320px;width:100%;margin:0;text-align:center">' +
+      '<h2 style="margin-top:0">Hay una actualización</h2>' +
+      '<button class="btn primary big" id="um-install" style="width:100%">Actualizar</button></div>';
+    document.body.appendChild(wrap);
+    const install = document.getElementById('um-install');
+    install.addEventListener('click', async function () {
+      install.disabled = true;
+      install.textContent = 'Actualizando…';
+      await downloadAndInstallUpdate(vc.url, install);
+    });
   }
 
   // ---------- Diagnóstico de licencia (pantalla técnica oculta: 7 toques en el título) ----------
@@ -485,6 +509,10 @@
         navigator.clipboard.writeText(u).then(function () { toast('Enlace copiado. Pégalo en Chrome para descargar.'); }).catch(function () { toast(u); });
       } else { toast(u); }
     }
+    else if (act === 'ver-install') {
+      b.disabled = true;
+      downloadAndInstallUpdate(b.getAttribute('data-url'), b);
+    }
     else if (act === 'ver-dismiss') {
       try { localStorage.setItem(VKEY, b.getAttribute('data-v')); } catch (e) { /* noop */ }
       render();
@@ -827,15 +855,56 @@
     saveVerCache(vc);
     if (route().v === 'home') render();
   }
+  // ¿Estamos corriendo dentro del APK (con los plugins nativos necesarios) y no en
+  // un navegador de prueba? Solo ahí se puede descargar e instalar de verdad.
+  function canNativeInstall() {
+    const C = window.Capacitor;
+    return !!(C && C.Plugins && C.Plugins.Filesystem && C.Plugins.FileOpener);
+  }
+  function blobToBase64(blob) {
+    return new Promise(function (resolve, reject) {
+      const reader = new FileReader();
+      reader.onloadend = function () { resolve(String(reader.result).split(',')[1] || ''); };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+  async function downloadAndInstallUpdate(url, btn) {
+    const setTxt = function (t) { if (btn) btn.textContent = t; };
+    try {
+      setTxt('Descargando…');
+      const res = await fetch(url, { cache: 'no-store' });
+      if (!res.ok) throw new Error('No se pudo descargar (código ' + res.status + ')');
+      const blob = await res.blob();
+      setTxt('Preparando…');
+      const base64 = await blobToBase64(blob);
+      const { Filesystem, FileOpener } = window.Capacitor.Plugins;
+      const path = 'PesajeAves-update.apk';
+      await Filesystem.writeFile({ path: path, data: base64, directory: 'CACHE' });
+      const uriRes = await Filesystem.getUri({ path: path, directory: 'CACHE' });
+      setTxt('Abriendo instalador…');
+      await FileOpener.open({ filePath: uriRes.uri, contentType: 'application/vnd.android.package-archive' });
+    } catch (e) {
+      toast('No se pudo instalar: ' + ((e && e.message) || e), true);
+      setTxt('⬇️ Reintentar descarga e instalación');
+      if (btn) btn.disabled = false;
+      return;
+    }
+    setTxt('⬇️ Descargar e instalar actualización');
+    if (btn) btn.disabled = false;
+  }
   function updateBanner() {
     const vc = loadVerCache();
     if (!vc.latest || cmpVer(vc.latest, CURRENT_VERSION) <= 0) return '';
     let dismissed = ''; try { dismissed = localStorage.getItem(VKEY) || ''; } catch (e) { /* noop */ }
     if (dismissed === vc.latest) return '';
+    const puedeInstalar = canNativeInstall() && vc.url;
     return '<div class="card" style="border-color:var(--am);background:var(--aml)">' +
       '<div style="font-weight:800;color:#6b4a00;margin-bottom:4px">🆕 Hay una actualización disponible (v' + esc(vc.latest) + ')</div>' +
       (vc.notas ? '<div style="font-size:13px;margin-bottom:8px">' + esc(vc.notas) + '</div>' : '') +
-      (vc.url ? '<button class="btn small" data-act="ver-copy" data-url="' + esc(vc.url) + '">📋 Copiar enlace de descarga</button>' : '') +
+      (puedeInstalar ? '<button class="btn primary small" data-act="ver-install" data-url="' + esc(vc.url) + '">⬇️ Descargar e instalar actualización</button>' +
+        '<div class="muted" style="font-size:12px;margin-top:4px">Android te pedirá confirmar la instalación (un solo toque).</div>' :
+        (vc.url ? '<button class="btn small" data-act="ver-copy" data-url="' + esc(vc.url) + '">📋 Copiar enlace de descarga</button>' : '')) +
       '<button class="btn small mt" data-act="ver-dismiss" data-v="' + esc(vc.latest) + '">Ya la tengo / recordar después</button></div>';
   }
 
