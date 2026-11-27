@@ -99,7 +99,10 @@
     }
     if (p[0] === 'granja') return { v: 'granja' };
     if (p[0] === 'respaldo') return { v: 'respaldo' };
-    if (p[0] === 'lic') return { v: 'lic' };
+    if (p[0] === 'lic') {
+      let ok = false; try { ok = sessionStorage.getItem(DIAG_OK_KEY) === '1'; } catch (e) { /* noop */ }
+      return ok ? { v: 'lic' } : { v: 'home' };
+    }
     return { v: 'home' };
   }
   let lastRoute = '';
@@ -267,8 +270,11 @@
       '<button class="btn danger small" data-act="clear-all">Nueva jornada (borrar todo)</button>' +
       '</main>' + firma();
   }
-  // Toca 7 veces seguidas el título "Pesaje de Aves" para entrar al diagnóstico
-  // de licencia (pantalla técnica, no es para los operadores de los galpones).
+  // Toca 10 veces seguidas el título "Pesaje de Aves" y luego escribe el PIN
+  // para entrar al diagnóstico de licencia. Cambia DIAG_PIN por el número que
+  // quieras (solo tú debes conocerlo); nadie entra sin tocarlo Y sin el PIN.
+  const DIAG_PIN = '2026';
+  const DIAG_OK_KEY = 'pesajeAves.diagOk'; // no pide el PIN de nuevo mientras la app siga abierta
   let titleTaps = 0, titleTapTimer = null;
   function bindHomeSecret() {
     const t = document.getElementById('app-title');
@@ -276,8 +282,20 @@
     t.addEventListener('click', function () {
       titleTaps++;
       clearTimeout(titleTapTimer);
-      titleTapTimer = setTimeout(function () { titleTaps = 0; }, 1500);
-      if (titleTaps >= 7) { titleTaps = 0; location.hash = '#/lic'; }
+      titleTapTimer = setTimeout(function () { titleTaps = 0; }, 1200);
+      if (titleTaps >= 10) {
+        titleTaps = 0;
+        let yaEntro = false;
+        try { yaEntro = sessionStorage.getItem(DIAG_OK_KEY) === '1'; } catch (e) { /* noop */ }
+        if (yaEntro) { location.hash = '#/lic'; return; }
+        const pin = prompt('PIN:');
+        if (pin === null) return;
+        if (pin === DIAG_PIN) {
+          try { sessionStorage.setItem(DIAG_OK_KEY, '1'); } catch (e) { /* noop */ }
+          location.hash = '#/lic';
+        }
+        // PIN incorrecto: no pasa nada, ni un mensaje — para no darle pistas a quien no debe entrar.
+      }
     });
   }
 
