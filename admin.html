@@ -61,6 +61,14 @@
       <p class="muted">Usa <code>status</code> para la granja de siempre. Para otra granja, escribe el mismo código
       que le pusiste en "Diagnóstico de licencia → Código de cliente" de su teléfono (ej. <code>CATALDA2</code>).</p>
     </div>
+    <div class="card">
+      <h2 style="margin-top:0;font-size:15px;color:var(--gd)">Licencias creadas</h2>
+      <p class="muted">Todas las granjas/clientes que has activado alguna vez. Toca "Usar" para cargar esa granja
+      arriba, o "🗑" para borrarla por completo (sus teléfonos quedarán bloqueados hasta que actives una nueva
+      licencia con ese mismo código).</p>
+      <div id="licList"><p class="muted">Cargando…</p></div>
+      <button class="btn ghost" id="btnRefrescarLic" style="margin-top:4px">🔄 Actualizar lista</button>
+    </div>
     <div id="statusBox" class="status"></div>
     <div class="card">
       <h2 style="margin-top:0;font-size:15px;color:var(--gd)">Renovar licencia (del cliente de arriba)</h2>
@@ -111,6 +119,9 @@
   const cfg = window.LICENSE_CONFIG || {};
   const $ = (s) => document.querySelector(s);
   const msg = (t, bad) => { const e = $('#msg'); e.textContent = t; e.className = bad ? 'bad' : 'ok'; };
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+    return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
+  });
 
   if (!cfg.PROJECT_ID || !cfg.API_KEY) { $('#setupWarn').classList.remove('hide'); $('#login').classList.add('hide'); return; }
 
@@ -160,10 +171,59 @@
     } catch (e) { box.className = 'status bad'; box.innerHTML = '<b>No se pudo leer el estado</b>' + e.message; }
   }
 
+  async function listarLicencias() {
+    const box = $('#licList');
+    box.innerHTML = '<p class="muted">Cargando…</p>';
+    try {
+      const snap = await db.collection('license').get();
+      if (snap.empty) { box.innerHTML = '<p class="muted">Todavía no has activado ninguna licencia.</p>'; return; }
+      const hoy = isoPlusDays(0);
+      const filas = [];
+      snap.forEach(function (doc) {
+        const d = doc.data();
+        const ok = d.active !== false && d.validUntil && d.validUntil >= hoy;
+        const estado = d.active === false ? 'Desactivada' : (ok ? 'Activa' : 'Vencida');
+        filas.push({ id: doc.id, estado: estado, ok: ok, validUntil: d.validUntil || '—', note: d.note || '' });
+      });
+      filas.sort(function (a, b) { return a.id.localeCompare(b.id); });
+      box.innerHTML = filas.map(function (r) {
+        return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 0;border-bottom:1px solid var(--line)">' +
+          '<div>' +
+          '<div style="font-weight:700;color:' + (r.ok ? 'var(--g)' : 'var(--rd)') + '">' + esc(r.id) + ' — ' + esc(r.estado) + '</div>' +
+          '<div class="muted" style="font-size:12px">Vence: ' + esc(r.validUntil) + (r.note ? ' · ' + esc(r.note) : '') + '</div>' +
+          '</div>' +
+          '<div style="display:flex;gap:6px;flex-shrink:0">' +
+          '<button type="button" class="btn ghost" data-usar="' + esc(r.id) + '" style="width:auto;min-height:36px;padding:0 10px;margin:0;font-size:13px">Usar</button>' +
+          '<button type="button" class="btn danger" data-borrar="' + esc(r.id) + '" style="width:auto;min-height:36px;padding:0 10px;margin:0;font-size:13px">🗑</button>' +
+          '</div></div>';
+      }).join('');
+      box.querySelectorAll('[data-usar]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          $('#cliente').value = b.getAttribute('data-usar');
+          mostrarEstado();
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+      });
+      box.querySelectorAll('[data-borrar]').forEach(function (b) {
+        b.addEventListener('click', async function () {
+          const id = b.getAttribute('data-borrar');
+          if (!confirm('¿Eliminar por completo la licencia "' + id + '"? Los teléfonos con ese código quedarán ' +
+            'bloqueados hasta que actives una licencia nueva con ese mismo código. Esto no se puede deshacer.')) return;
+          try {
+            await db.collection('license').doc(id).delete();
+            listarLicencias();
+            if (clienteId() === id) mostrarEstado();
+          } catch (e) { alert('No se pudo eliminar: ' + e.message); }
+        });
+      });
+    } catch (e) { box.innerHTML = '<p class="muted" style="color:var(--rd)">No se pudo cargar la lista: ' + esc(e.message) + '</p>'; }
+  }
+
   auth.onAuthStateChanged(function (user) {
-    if (user) { $('#login').classList.add('hide'); $('#panel').classList.remove('hide'); mostrarEstado(); }
+    if (user) { $('#login').classList.add('hide'); $('#panel').classList.remove('hide'); mostrarEstado(); listarLicencias(); }
     else { $('#login').classList.remove('hide'); $('#panel').classList.add('hide'); }
   });
+  $('#btnRefrescarLic').addEventListener('click', listarLicencias);
 
   $('#btnLogin').addEventListener('click', async function () {
     msg('Entrando…');
@@ -186,6 +246,7 @@
       await docRef().set({ active: true, validUntil: isoPlusDays(dias), note: code, updatedAt: new Date().toISOString() }, { merge: true });
       msg('Listo. "' + clienteId() + '" activa hasta ' + isoPlusDays(dias) + '.', false);
       mostrarEstado();
+      listarLicencias();
     } catch (e) { msg('No se pudo guardar: ' + e.message, true); }
   });
 
@@ -195,6 +256,7 @@
       await docRef().set({ active: false, updatedAt: new Date().toISOString() }, { merge: true });
       msg('Licencia de "' + clienteId() + '" desactivada.', false);
       mostrarEstado();
+      listarLicencias();
     } catch (e) { msg('No se pudo guardar: ' + e.message, true); }
   });
 

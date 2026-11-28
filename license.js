@@ -10,8 +10,7 @@
 (function (root) {
   'use strict';
 
-  const GRACE_DAYS = 10;         // días que puede trabajar sin confirmar conexión
-  const INSTALL_GRACE_DAYS = 3;  // margen para un teléfono nuevo que aún no logra conectarse
+  const GRACE_DAYS = 10;         // días que puede trabajar sin confirmar conexión (ya activada antes)
   const CHECK_COOLDOWN_MIN = 60; // no intentar more de una vez por hora aunque la app se reabra
 
   function todayISO() {
@@ -35,12 +34,8 @@
     nowDate = nowDate || todayISO();
     const c = cache || blankCache();
     if (!c.lastOkAt) {
-      // Nunca se ha confirmado conexión en este teléfono.
-      const inst = c.installedAt || nowDate;
-      const dias = daysBetween(inst, nowDate);
-      if (dias <= INSTALL_GRACE_DAYS) {
-        return { allowed: true, state: 'instalando', diasRestantesInstalacion: INSTALL_GRACE_DAYS - dias };
-      }
+      // Nunca se ha activado este teléfono: no se deja usar la app hasta que se
+      // escriba el código de la granja y se confirme contra Firebase, con internet.
       return { allowed: false, state: 'sin-primera-conexion' };
     }
     if (c.active === false) {
@@ -77,7 +72,7 @@
 
   function mensaje(ev) {
     const M = {
-      'sin-primera-conexion': { t: 'Falta activar esta app', d: 'Conecta el teléfono a wifi o datos móviles una vez para activarla.' },
+      'sin-primera-conexion': { t: 'Falta activar esta app', d: 'Escribe el código de esta granja y conéctate a wifi o datos móviles para activarla.' },
       'desactivada': { t: 'Licencia no activa', d: 'Contacta al administrador de la aplicación.' },
       'vencida': { t: 'Licencia vencida', d: 'Contacta al administrador para renovarla.' },
       'sin-conexion-reciente': { t: 'Falta confirmar la licencia', d: 'Este teléfono no logra conectarse hace días. Conéctalo a wifi o datos móviles.' }
@@ -86,7 +81,7 @@
   }
 
   root.License = {
-    GRACE_DAYS: GRACE_DAYS, INSTALL_GRACE_DAYS: INSTALL_GRACE_DAYS, CHECK_COOLDOWN_MIN: CHECK_COOLDOWN_MIN,
+    GRACE_DAYS: GRACE_DAYS, CHECK_COOLDOWN_MIN: CHECK_COOLDOWN_MIN,
     todayISO: todayISO, daysBetween: daysBetween, blankCache: blankCache,
     evaluate: evaluate, shouldTryNow: shouldTryNow, parseFirestoreDoc: parseFirestoreDoc, mensaje: mensaje
   };

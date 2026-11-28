@@ -79,13 +79,15 @@ Esto es opcional: mientras no lo configures, la app funciona libre, como hasta a
 Sirve para que tú controles, desde un solo panel, que la app siga funcionando en todos
 los teléfonos de la granja. Si un mes no renuevas, se bloquea sola en todos.
 
-**Cómo funciona:** cada teléfono, cuando tiene señal (wifi o datos), pregunta en segundo
-plano si la licencia sigue activa, y guarda la respuesta por hasta 10 días. Mientras ese
-plazo no se cumpla, el teléfono sigue pesando aves sin problema aunque esté sin señal
-dentro del galpón. Si pasan más de 10 días sin lograr confirmar, o si tú la desactivas,
-la app muestra un aviso ("Licencia no activa / Licencia vencida") y no deja pesar hasta
-que vuelva a confirmarse. Un teléfono recién instalado tiene 3 días de margen para
-conseguir señal por primera vez.
+**Cómo funciona:** un teléfono que nunca se ha activado queda bloqueado de inmediato
+(no hay margen de días) con una pantalla donde el usuario escribe el código de su
+granja y toca **Activar**; si Firebase confirma que ese código está activo, entra
+directo a pesar aves. Una vez activado, el teléfono pregunta en segundo plano si la
+licencia sigue activa cada vez que tiene señal (wifi o datos), y guarda la respuesta
+por hasta 10 días. Mientras ese plazo no se cumpla, sigue pesando aves sin problema
+aunque esté sin señal dentro del galpón. Si pasan más de 10 días sin lograr confirmar,
+o si tú la desactivas, vuelve a bloquearse con el mismo aviso y la misma pantalla para
+reactivar.
 
 Esto requiere que la empresa sepa que la app funciona así (que forma parte de las
 condiciones de uso que acuerdes), no es algo que deba quedar oculto.
@@ -159,8 +161,8 @@ condiciones de uso que acuerdes), no es algo que deba quedar oculto.
 > en un enlace público, nadie puede cambiar la licencia sin tu correo y
 > contraseña de Firebase (eso lo protegen las reglas de seguridad del paso 3).
 
-El plazo de 10 días de margen y los 3 días de instalación están en `license.js`
-(`GRACE_DAYS` e `INSTALL_GRACE_DAYS`); si quieres otros números, dímelo.
+El plazo de 10 días de margen (para seguir funcionando offline una vez ya activada)
+está en `license.js` (`GRACE_DAYS`); si quieres otro número, dímelo.
 
 ### Varias granjas / clientes (cada una con su propia licencia)
 

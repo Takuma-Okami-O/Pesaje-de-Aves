@@ -776,16 +776,43 @@
   function saveLic(c) { try { localStorage.setItem(licKey(), JSON.stringify(c)); } catch (e) { /* best-effort */ } }
   let lic = loadLic();
 
-  function lockScreen(ev) {
+  function lockScreen(ev, msgExtra) {
     const m = L.mensaje(ev);
+    const codigoActual = getCliente();
     app.innerHTML = '<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px;text-align:center;background:var(--gd);color:#fff">' +
       '<div style="font-size:52px;margin-bottom:10px">🔒</div>' +
       '<h1 style="font-size:21px;margin:0 0 8px">' + esc(m.t) + '</h1>' +
-      '<p style="font-size:15px;opacity:.9;max-width:320px;margin:0 0 22px">' + esc(m.d) + '</p>' +
-      '<button id="lic-retry" class="btn" style="background:#fff;border-color:#fff;max-width:220px">↻ Reintentar</button>' +
+      '<p style="font-size:15px;opacity:.9;max-width:320px;margin:0 0 4px">' + esc(m.d) + '</p>' +
+      (msgExtra ? '<p style="font-size:13.5px;color:#ffd6cc;max-width:320px;margin:4px 0 14px;font-weight:700">' + esc(msgExtra) + '</p>' : '<div style="margin-bottom:14px"></div>') +
+      '<div style="width:100%;max-width:280px;text-align:left;margin-bottom:12px">' +
+      '<label for="lic-code" style="font-size:13px;opacity:.85;display:block;margin-bottom:4px">Código de esta granja</label>' +
+      '<input id="lic-code" type="text" value="' + esc(codigoActual === 'status' ? '' : codigoActual) + '" placeholder="status (si no sabes, déjalo así)" ' +
+      'style="width:100%;box-sizing:border-box;padding:11px 12px;border-radius:10px;border:none;font-size:16px">' +
+      '</div>' +
+      '<button id="lic-activar" class="btn" style="max-width:280px;width:100%;margin-bottom:8px">Activar</button>' +
+      '<button id="lic-retry" style="background:transparent;border:2px solid rgba(255,255,255,.5);color:#fff;max-width:280px;width:100%;min-height:44px;border-radius:14px;font-size:14px;font-weight:700">↻ Reintentar sin cambiar código</button>' +
       '</div>';
     const b = document.getElementById('lic-retry');
     if (b) b.addEventListener('click', function () { checkLicense(true); });
+    const a = document.getElementById('lic-activar');
+    const inp = document.getElementById('lic-code');
+    if (a) a.addEventListener('click', function () { activarCodigo(inp ? inp.value : '', a); });
+    if (inp) inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') activarCodigo(inp.value, a); });
+  }
+
+  // El usuario escribe el código de su granja directo en la pantalla de bloqueo y
+  // toca "Activar": se guarda ese código, se consulta Firebase al instante, y si
+  // responde que está activa, entra directo a la app (sin pasos de diagnóstico).
+  async function activarCodigo(code, btn) {
+    if (btn) { btn.disabled = true; btn.textContent = 'Verificando…'; }
+    setCliente(code);
+    lic = loadLic();
+    await checkLicense(true);
+    if (lic.lastError) {
+      lockScreen(L.evaluate(lic), 'No se pudo verificar ese código. Revisa que esté escrito igual que en el panel y que tengas internet.');
+    }
+    // Si sí se pudo verificar, checkLicense ya mostró la app (render()) o actualizó
+    // esta misma pantalla con el motivo exacto (vencida, desactivada, etc.).
   }
 
   function licenseConfigured() {
@@ -853,7 +880,7 @@
       }
     } catch (e) { /* sin internet: no pasa nada, se reintenta más tarde */ }
     saveVerCache(vc);
-    if (route().v === 'home') render();
+    if (route().v === 'home' && L.evaluate(lic).allowed) render();
   }
   // ¿Estamos corriendo dentro del APK (con los plugins nativos necesarios) y no en
   // un navegador de prueba? Solo ahí se puede descargar e instalar de verdad.
