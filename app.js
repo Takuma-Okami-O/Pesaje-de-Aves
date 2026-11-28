@@ -307,7 +307,7 @@
       titleTaps++;
       clearTimeout(titleTapTimer);
       titleTapTimer = setTimeout(function () { titleTaps = 0; }, 1200);
-      if (titleTaps >= 10) {
+      if (titleTaps >= 5) {
         titleTaps = 0;
         let yaEntro = false;
         try { yaEntro = sessionStorage.getItem(DIAG_OK_KEY) === '1'; } catch (e) { /* noop */ }
@@ -477,7 +477,7 @@
     const a = $('#in-a'), p = $('#in-p');
     const av = C.num(a.value), pe = kgToG(C.num(p.value));
     if (!(av > 0) || Math.floor(av) !== av) { toast('Escribe la cantidad de aves (número entero)', true); a.focus(); return; }
-    if (!(pe > 0)) { toast('Escribe el peso total en kg (ej. 26.4)', true); p.focus(); return; }
+    if (!(pe > 0)) { toast('Escribe el peso total en kg (ej. 25.5)', true); p.focus(); return; }
     const pp = pe / av;
     if ((pp < 20 || pp > 6000) && !confirm('El peso da ' + C.fmt(pp, 0) + ' g por ave. ¿Es correcto?')) return;
     const g = ensure(r.id);
