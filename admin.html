@@ -56,7 +56,7 @@
     <div class="card">
       <h2 style="margin-top:0;font-size:15px;color:var(--gd)">Granja / cliente</h2>
       <label>Código de cliente</label>
-      <input type="text" id="cliente" value="status" placeholder="status (granja de siempre)">
+      <input type="text" id="cliente" value="status" placeholder="status (granja de siempre)" style="text-transform:uppercase">
       <button class="btn ghost" id="btnCargar">🔄 Cargar este cliente</button>
       <p class="muted">Usa <code>status</code> para la granja de siempre. Para otra granja, escribe el mismo código
       que le pusiste en "Diagnóstico de licencia → Código de cliente" de su teléfono (ej. <code>CATALDA2</code>).</p>
@@ -128,7 +128,16 @@
   firebase.initializeApp({ apiKey: cfg.API_KEY, projectId: cfg.PROJECT_ID, authDomain: cfg.PROJECT_ID + '.firebaseapp.com' });
   const auth = firebase.auth();
   const db = firebase.firestore();
-  function clienteId() { return ($('#cliente').value || 'status').trim() || 'status'; }
+  function clienteId() {
+    // La app en el teléfono guarda cualquier código que no sea el de siempre SIEMPRE
+    // en mayúsculas (sin espacios ni acentos); el de siempre se queda en minúsculas
+    // ('status'). Si aquí no se normaliza igual, se crea una licencia con otro
+    // nombre (ej. "Catalda2") que la app nunca encuentra (busca "CATALDA2").
+    const input = ($('#cliente').value || '').trim();
+    if (!input || input.toLowerCase() === 'status') return 'status';
+    const raw = input.toUpperCase().replace(/[^A-Z0-9_-]/g, '');
+    return raw || 'status';
+  }
   function docRef() { return db.collection('license').doc(clienteId()); }
   const verRef = db.collection('app').doc('version');
 

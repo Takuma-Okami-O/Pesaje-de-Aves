@@ -167,17 +167,22 @@ El plazo de 10 días de margen y los 3 días de instalación están en `license.
 Un solo APK y un solo proyecto de Firebase pueden servir a varias granjas distintas,
 cada una activada y cortada por separado, sin que una afecte a la otra:
 
-1. Al entregar un teléfono a una granja nueva, abre la app, toca 7 veces seguidas
-   el título **"Pesaje de Aves"** (arriba) para entrar al **Diagnóstico de licencia**,
-   toca **"Cambiar código de cliente"** y ponle un código único a esa granja (por
-   ejemplo `CATALDA2`, `LAFINCA`, sin espacios). Hazlo en todos los teléfonos que vayan
-   a esa misma granja — un mismo código = comparten una sola licencia.
-   La granja original (la tuya) no necesita hacer nada: por defecto todos los teléfonos
-   usan el código `status`, igual que hasta ahora.
+1. Al entregar un teléfono a una granja nueva, abre la app, toca 10 veces seguidas
+   el título **"Pesaje de Aves"** (arriba), escribe el PIN (`2026`) para entrar al
+   **Diagnóstico de licencia**, toca **"Cambiar código de cliente"** y ponle un código
+   único a esa granja (por ejemplo `CATALDA2`, `LAFINCA`, sin espacios). Hazlo en todos
+   los teléfonos que vayan a esa misma granja — un mismo código = comparten una sola
+   licencia. La granja original (la tuya) no necesita hacer nada: por defecto todos los
+   teléfonos usan el código `status`, igual que hasta ahora.
 2. En `admin.html`, arriba de todo hay un campo **"Código de cliente"**. Escribe ahí
    el código de la granja que quieras revisar o renovar (o déjalo en `status` para la
    tuya) y pulsa **"Cargar este cliente"**. Desde ahí, **Renovar licencia** y
    **Desactivar ahora** afectan solo a esa granja — las demás siguen como estaban.
+   **Importante:** el código siempre se guarda EN MAYÚSCULAS y sin espacios ni
+   acentos, tanto en el teléfono como aquí en `admin.html` — si escribes `Catalda2`
+   (con minúsculas) aquí, se guarda y se busca como `CATALDA2` de todas formas, así
+   que no hace falta preocuparse por cómo lo escribas, siempre que sea el mismo
+   código en el teléfono y aquí.
 3. No hace falta "crear" nada de antemano: la primera vez que actives un código nuevo
    con **Activar / renovar licencia**, Firebase crea su documento automáticamente.
 
